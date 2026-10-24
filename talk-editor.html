@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>会話JSONエディタ</title>
+<style>
+  :root {
+    --bg: #f4f3ee;
+    --card: #ffffff;
+    --accent: #b8892a;
+    --accent-soft: #f7c94b;
+    --border: #ddd8c8;
+    --text: #2b2820;
+    --danger: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding-bottom: 100px;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #2b2820;
+    color: #fff;
+    padding: 12px 14px;
+  }
+  header h1 {
+    margin: 0 0 10px 0;
+    font-size: 17px;
+  }
+  .header-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  button {
+    font-size: 14px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+  }
+  header button {
+    background: #3d392c;
+    color: #fff;
+    border-color: #555;
+  }
+  button.primary {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    font-weight: bold;
+  }
+  button.danger {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+  button.small {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  main {
+    padding: 14px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  section > h2 {
+    margin: 0 0 10px 0;
+    font-size: 15px;
+    color: var(--accent);
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    color: #766;
+    margin-bottom: 4px;
+    margin-top: 10px;
+  }
+  input[type=text], textarea, select {
+    width: 100%;
+    font-size: 16px; /* iOSでズームさせないため */
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    background: #fffdf8;
+  }
+  textarea {
+    min-height: 80px;
+    resize: vertical;
+    white-space: pre-wrap;
+  }
+  .row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .row > * { flex: 1; }
+  .tag-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 6px 0;
+  }
+  .node-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .node-card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #efece0;
+    cursor: pointer;
+  }
+  .node-card-head .node-id-preview {
+    flex: 1;
+    font-weight: bold;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .node-card-body {
+    padding: 12px;
+    display: none;
+  }
+  .node-card.open .node-card-body {
+    display: block;
+  }
+  .node-card-head .caret {
+    transition: transform 0.15s;
+  }
+  .node-card.open .caret {
+    transform: rotate(90deg);
+  }
+  .choice-row, .list-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+    align-items: center;
+  }
+  .choice-row input, .list-row input { flex: 1; }
+  .list-actions {
+    display: flex;
+    gap: 4px;
+  }
+  .add-row {
+    margin-top: 6px;
+  }
+  .warn {
+    color: var(--danger);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  #importArea {
+    min-height: 100px;
+    font-family: monospace;
+    font-size: 13px;
+  }
+  #toast {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2b2820;
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 50;
+  }
+  #toast.show { opacity: 1; }
+  .hint {
+    font-size: 12px;
+    color: #766;
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .kind-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #ddd;
+    white-space: nowrap;
+  }
+  .kind-line { background: #dbe7f5; }
+  .kind-choice { background: #f5e3db; }
+  .kind-random { background: #e3f5db; }
+  .kind-idle { background: #eee; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>会話JSONエディタ（talk.json）</h1>
+  <div class="header-buttons">
+    <button id="btn-new">新規作成</button>
+    <button id="btn-import-file">ファイルから読込</button>
+    <input type="file" id="file-input" accept="application/json" style="display:none">
+    <button id="btn-export" class="primary">書き出し(保存)</button>
+    <button id="btn-copy">コピー</button>
+  </div>
+</header>
+
+<main>
+
+  <section>
+    <h2>基本設定</h2>
+    <label>start（最初に呼ばれるノードID）</label>
+    <input type="text" id="start-input" value="first_root">
+
+    <label>画像キー一覧（config.jsonのimagesと合わせてください／カンマ区切り）</label>
+    <input type="text" id="image-keys-input" value="normal,normal2,smile,idle">
+    <div class="hint">ここに入れたキーが、各ノードの「画像」選択肢と、本文入力欄の「表情差し替えボタン」に反映されます。</div>
+  </section>
+
+  <section>
+    <h2>mainStory（本編の順番）</h2>
+    <div id="mainstory-list"></div>
+    <button class="add-row small" id="btn-add-mainstory">＋ 本編ノードを追加</button>
+    <div class="hint">talkCountが5の倍数のときに、ここに書いた順番でノードが1つずつ再生されます。</div>
+  </section>
+
+  <section>
+    <h2>ノード一覧</h2>
+    <div id="nodes-list"></div>
+    <button class="add-row primary" id="btn-add-node" style="width:100%;margin-top:8px;">＋ 新しいノードを追加</button>
+  </section>
+
+  <section>
+    <h2>テキストから読み込む</h2>
+    <textarea id="importArea" placeholder="ここに既存のtalk.jsonの中身を貼り付けて「貼り付けから読み込む」を押すと編集できます"></textarea>
+    <button id="btn-import-text" style="margin-top:8px;">貼り付けから読み込む</button>
+  </section>
+
+  <section>
+    <h2>プレビュー(JSON)</h2>
+    <textarea id="preview" readonly style="min-height:160px;font-family:monospace;font-size:12px;"></textarea>
+  </section>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+// =====================
+// 状態
+// =====================
+let doc = {
+  start: "first_root",
+  mainStory: [],
+  imageKeys: ["normal", "normal2", "smile", "idle"],
+  // nodes は内部的には配列で保持し、書き出し時にオブジェクトへ変換する
+  nodes: []
+};
+let uidCounter = 1;
+function nextUid() { return "n" + (uidCounter++); }
+
+const DRAFT_KEY = "talkEditorDraft";
+
+// =====================
+// 初期データ
+// =====================
+function blankNode(kind) {
+  return {
+    uid: nextUid(),
+    id: "",
+    kind: kind || "line", // line / choice / random / idle
+    text: "",
+    image: doc.imageKeys[0] || "normal",
+    next: "idle",
+    choices: [],   // [{text, next}]
+    random: [],    // [id, id, ...]
+    open: true
+  };
+}
+
+function defaultDoc() {
+  const idle = blankNode("idle");
+  idle.id = "idle";
+  idle.open = false;
+
+  const firstRoot = blankNode("random");
+  firstRoot.id = "first_root";
+  firstRoot.random = ["f1"];
+  firstRoot.open = false;
+
+  const f1 = blankNode("line");
+  f1.id = "f1";
+  f1.text = "初めまして。";
+  f1.image = "normal";
+  f1.next = "idle";
+
+  return {
+    start: "first_root",
+    mainStory: [],
+    imageKeys: ["normal", "normal2", "smile", "idle"],
+    nodes: [idle, firstRoot, f1]
+  };
+}
+
+// =====================
+// ユーティリティ
+// =====================
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove("show"), 1800);
+}
+
+function saveDraft() {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(doc));
+  } catch (e) { /* ignore */ }
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
+// =====================
+// エクスポート/インポート変換
+// =====================
+function buildExportObject() {
+  const nodesObj = {};
+  doc.nodes.forEach(n => {
+    if (!n.id) return;
+    if (n.kind === "idle") {
+      nodesObj[n.id] = { action: "idle" };
+    } else if (n.kind === "random") {
+      nodesObj[n.id] = { random: n.random.filter(Boolean) };
+    } else if (n.kind === "choice") {
+      const node = {};
+      if (n.text) node.text = n.text;
+      if (n.image) node.image = n.image;
+      node.choices = n.choices
+        .filter(c => c.text || c.next)
+        .map(c => ({ text: c.text, next: c.next }));
+      nodesObj[n.id] = node;
+    } else { // line
+      const node = {};
+      if (n.text) node.text = n.text;
+      if (n.image) node.image = n.image;
+      if (n.next) node.next = n.next;
+      nodesObj[n.id] = node;
+    }
+  });
+
+  return {
+    mainStory: doc.mainStory.filter(Boolean),
+    start: doc.start || "first_root",
+    nodes: nodesObj
+  };
+}
+
+function importFromObject(obj) {
+  const newDoc = {
+    start: obj.start || "first_root",
+    mainStory: Array.isArray(obj.mainStory) ? obj.mainStory.slice() : [],
+    imageKeys: doc.imageKeys.slice(),
+    nodes: []
+  };
+
+  const nodes = obj.nodes || {};
+  Object.keys(nodes).forEach(id => {
+    const raw = nodes[id];
+    const n = blankNode("line");
+    n.id = id;
+    n.open = false;
+
+    if (raw.action === "idle") {
+      n.kind = "idle";
+    } else if (Array.isArray(raw.random)) {
+      n.kind = "random";
+      n.random = raw.random.slice();
+    } else if (Array.isArray(raw.choices)) {
+      n.kind = "choice";
+      n.text = raw.text || "";
+      n.image = raw.image || newDoc.imageKeys[0] || "normal";
+      n.choices = raw.choices.map(c => ({ text: c.text || "", next: c.next || "" }));
+    } else {
+      n.kind = "line";
+      n.text = raw.text || "";
+      n.image = raw.image || newDoc.imageKeys[0] || "normal";
+      n.next = raw.next || "";
+    }
+
+    newDoc.nodes.push(n);
+  });
+
+  doc = newDoc;
+  renderAll();
+  saveDraft();
+}
+
+// =====================
+// レンダリング
+// =====================
+function renderAll() {
+  document.getElementById("start-input").value = doc.start;
+  document.getElementById("image-keys-input").value = doc.imageKeys.join(",");
+  renderMainStory();
+  renderNodes();
+  renderPreview();
+}
+
+function renderMainStory() {
+  const box = document.getElementById("mainstory-list");
+  box.innerHTML = "";
+  doc.mainStory.forEach((id, idx) => {
+    const row = document.createElement("div");
+    row.className = "list-row";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = id;
+    input.placeholder = "ノードID（例: main1）";
+    input.addEventListener("input", () => {
+      doc.mainStory[idx] = input.value;
+      renderPreview();
+      saveDraft();
+    });
+
+    const actions = document.createElement("div");
+    actions.className = "list-actions";
+
+    const up = document.createElement("button");
+    up.className = "small";
+    up.textContent = "↑";
+    up.onclick = () => {
+      if (idx === 0) return;
+      [doc.mainStory[idx - 1], doc.mainStory[idx]] = [doc.mainStory[idx], doc.mainStory[idx - 1]];
+      renderMainStory();
+      renderPreview();
+      saveDraft();
+    };
+
+    const down = document.createElement("button");
+    down.className = "small";
+    down.textContent = "↓";
+    down.onclick = () => {
+      if (idx === doc.mainStory.length - 1) return;
+      [doc.mainStory[idx + 1], doc.mainStory[idx]] = [doc.mainStory[idx], doc.mainStory[idx + 1]];
+      renderMainStory();
+      renderPreview();
+      saveDraft();
+    };
+
+    const del = document.createElement("button");
+    del.className = "small danger";
+    del.textContent = "削除";
+    del.onclick = () => {
+      doc.mainStory.splice(idx, 1);
+      renderMainStory();
+      renderPreview();
+      saveDraft();
+    };
+
+    actions.appendChild(up);
+    actions.appendChild(down);
+    actions.appendChild(del);
+
+    row.appendChild(input);
+    row.appendChild(actions);
+    box.appendChild(row);
+  });
+}
+
+function kindLabel(kind) {
+  return { line: "セリフ", choice: "選択肢あり", random: "ランダム分岐", idle: "待機に戻る" }[kind] || kind;
+}
+
+function renderNodes() {
+  const box = document.getElementById("nodes-list");
+  box.innerHTML = "";
+
+  doc.nodes.forEach(n => {
+    const card = document.createElement("div");
+    card.className = "node-card" + (n.open ? " open" : "");
+
+    // ---- ヘッダー ----
+    const head = document.createElement("div");
+    head.className = "node-card-head";
+
+    const caret = document.createElement("span");
+    caret.className = "caret";
+    caret.textContent = "▶";
+
+    const idPreview = document.createElement("div");
+    idPreview.className = "node-id-preview";
+    idPreview.textContent = n.id || "(id未設定)";
+
+    const badge = document.createElement("span");
+    badge.className = "kind-badge kind-" + n.kind;
+    badge.textContent = kindLabel(n.kind);
+
+    head.appendChild(caret);
+    head.appendChild(idPreview);
+    head.appendChild(badge);
+    head.addEventListener("click", () => {
+      n.open = !n.open;
+      renderNodes();
+    });
+
+    // ---- 本体 ----
+    const body = document.createElement("div");
+    body.className = "node-card-body";
+
+    // ID
+    const idLabel = document.createElement("label");
+    idLabel.textContent = "ノードID（他のノードから next / choices / random で参照される名前）";
+    const idInput = document.createElement("input");
+    idInput.type = "text";
+    idInput.value = n.id;
+    idInput.addEventListener("input", () => {
+      n.id = idInput.value.trim();
+      idPreview.textContent = n.id || "(id未設定)";
+      renderPreview();
+      saveDraft();
+    });
+    body.appendChild(idLabel);
+    body.appendChild(idInput);
+
+    const dupWarn = document.createElement("div");
+    dupWarn.className = "warn";
+    dupWarn.style.display = "none";
+    dupWarn.textContent = "⚠ このIDは他のノードと重複しています";
+    body.appendChild(dupWarn);
+
+    // 種類
+    const kindLabelEl = document.createElement("label");
+    kindLabelEl.textContent = "種類";
+    const kindSelect = document.createElement("select");
+    [
+      ["line", "セリフ（自動で次へ進む）"],
+      ["choice", "セリフ＋選択肢"],
+      ["random", "ランダム分岐（rootノード用）"],
+      ["idle", "待機に戻る（特殊・通常はidleノードのみ）"]
+    ].forEach(([val, label]) => {
+      const opt = document.createElement("option");
+      opt.value = val;
+      opt.textContent = label;
+      if (n.kind === val) opt.selected = true;
+      kindSelect.appendChild(opt);
+    });
+    kindSelect.addEventListener("change", () => {
+      n.kind = kindSelect.value;
+      renderNodes();
+      renderPreview();
+      saveDraft();
+    });
+    body.appendChild(kindLabelEl);
+    body.appendChild(kindSelect);
+
+    if (n.kind === "line" || n.kind === "choice") {
+      // 表情差し替えツールバー
+      const toolbarLabel = document.createElement("label");
+      toolbarLabel.textContent = "本文（タップでタグを挿入できます）";
+      body.appendChild(toolbarLabel);
+
+      const toolbar = document.createElement("div");
+      toolbar.className = "tag-toolbar";
+
+      const textArea = document.createElement("textarea");
+      textArea.value = n.text;
+      textArea.placeholder = "セリフ本文。改行すると自動で1文字ずつ表示が区切られます。";
+      textArea.addEventListener("input", () => {
+        n.text = textArea.value;
+        renderPreview();
+        saveDraft();
+      });
+
+      function insertAtCursor(str) {
+        const start = textArea.selectionStart;
+        const end = textArea.selectionEnd;
+        const before = textArea.value.slice(0, start);
+        const after = textArea.value.slice(end);
+        textArea.value = before + str + after;
+        n.text = textArea.value;
+        const pos = start + str.length;
+        textArea.focus();
+        textArea.setSelectionRange(pos, pos);
+        renderPreview();
+        saveDraft();
+      }
+
+      doc.imageKeys.forEach(key => {
+        const btn = document.createElement("button");
+        btn.className = "small";
+        btn.textContent = "表情:" + key;
+        btn.type = "button";
+        btn.onclick = () => insertAtCursor(`{face:${key}}`);
+        toolbar.appendChild(btn);
+      });
+      const waitBtn = document.createElement("button");
+      waitBtn.className = "small";
+      waitBtn.textContent = "間(500ms)";
+      waitBtn.type = "button";
+      waitBtn.onclick = () => insertAtCursor("{wait:500}");
+      toolbar.appendChild(waitBtn);
+
+      const shakeBtn = document.createElement("button");
+      shakeBtn.className = "small";
+      shakeBtn.textContent = "揺れ";
+      shakeBtn.type = "button";
+      shakeBtn.onclick = () => insertAtCursor("{shake}");
+      toolbar.appendChild(shakeBtn);
+
+      body.appendChild(toolbar);
+      body.appendChild(textArea);
+
+      // 画像
+      const imgLabel = document.createElement("label");
+      imgLabel.textContent = "表示する立ち絵（初期表情）";
+      const imgSelect = document.createElement("select");
+      doc.imageKeys.forEach(key => {
+        const opt = document.createElement("option");
+        opt.value = key;
+        opt.textContent = key;
+        if (n.image === key) opt.selected = true;
+        imgSelect.appendChild(opt);
+      });
+      imgSelect.addEventListener("change", () => {
+        n.image = imgSelect.value;
+        renderPreview();
+        saveDraft();
+      });
+      body.appendChild(imgLabel);
+      body.appendChild(imgSelect);
+    }
+
+    if (n.kind === "line") {
+      const nextLabel = document.createElement("label");
+      nextLabel.textContent = "次に進むノードID（next）";
+      const nextInput = document.createElement("input");
+      nextInput.type = "text";
+      nextInput.value = n.next;
+      nextInput.placeholder = "idle";
+      nextInput.addEventListener("input", () => {
+        n.next = nextInput.value.trim();
+        renderPreview();
+        saveDraft();
+      });
+      body.appendChild(nextLabel);
+      body.appendChild(nextInput);
+    }
+
+    if (n.kind === "choice") {
+      const choicesLabel = document.createElement("label");
+      choicesLabel.textContent = "選択肢一覧";
+      body.appendChild(choicesLabel);
+
+      const choicesBox = document.createElement("div");
+      n.choices.forEach((c, ci) => {
+        const row = document.createElement("div");
+        row.className = "choice-row";
+
+        const textInput = document.createElement("input");
+        textInput.type = "text";
+        textInput.placeholder = "選択肢の表示テキスト";
+        textInput.value = c.text;
+        textInput.addEventListener("input", () => {
+          c.text = textInput.value;
+          renderPreview();
+          saveDraft();
+        });
+
+        const nextInput = document.createElement("input");
+        nextInput.type = "text";
+        nextInput.placeholder = "行き先ノードID";
+        nextInput.value = c.next;
+        nextInput.addEventListener("input", () => {
+          c.next = nextInput.value.trim();
+          renderPreview();
+          saveDraft();
+        });
+
+        const del = document.createElement("button");
+        del.className = "small danger";
+        del.textContent = "削除";
+        del.onclick = () => {
+          n.choices.splice(ci, 1);
+          renderNodes();
+          renderPreview();
+          saveDraft();
+        };
+
+        row.appendChild(textInput);
+        row.appendChild(nextInput);
+        row.appendChild(del);
+        choicesBox.appendChild(row);
+      });
+      body.appendChild(choicesBox);
+
+      const addChoice = document.createElement("button");
+      addChoice.className = "add-row small";
+      addChoice.textContent = "＋ 選択肢を追加";
+      addChoice.onclick = () => {
+        n.choices.push({ text: "", next: "" });
+        renderNodes();
+        saveDraft();
+      };
+      body.appendChild(addChoice);
+    }
+
+    if (n.kind === "random") {
+      const randomLabel = document.createElement("label");
+      randomLabel.textContent = "分岐先候補（この中からランダムで1つ選ばれます／未読を優先）";
+      body.appendChild(randomLabel);
+
+      const randomBox = document.createElement("div");
+      n.random.forEach((id, ri) => {
+        const row = document.createElement("div");
+        row.className = "list-row";
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "ノードID";
+        input.value = id;
+        input.addEventListener("input", () => {
+          n.random[ri] = input.value.trim();
+          renderPreview();
+          saveDraft();
+        });
+
+        const del = document.createElement("button");
+        del.className = "small danger";
+        del.textContent = "削除";
+        del.onclick = () => {
+          n.random.splice(ri, 1);
+          renderNodes();
+          renderPreview();
+          saveDraft();
+        };
+
+        row.appendChild(input);
+        row.appendChild(del);
+        randomBox.appendChild(row);
+      });
+      body.appendChild(randomBox);
+
+      const addRandom = document.createElement("button");
+      addRandom.className = "add-row small";
+      addRandom.textContent = "＋ 候補を追加";
+      addRandom.onclick = () => {
+        n.random.push("");
+        renderNodes();
+        saveDraft();
+      };
+      body.appendChild(addRandom);
+    }
+
+    // 複製・削除
+    const footRow = document.createElement("div");
+    footRow.className = "row";
+    footRow.style.marginTop = "14px";
+
+    const dupBtn = document.createElement("button");
+    dupBtn.textContent = "このノードを複製";
+    dupBtn.onclick = () => {
+      const copy = JSON.parse(JSON.stringify(n));
+      copy.uid = nextUid();
+      copy.id = n.id ? n.id + "_copy" : "";
+      copy.open = true;
+      const idx = doc.nodes.indexOf(n);
+      doc.nodes.splice(idx + 1, 0, copy);
+      renderNodes();
+      renderPreview();
+      saveDraft();
+    };
+
+    const delBtn = document.createElement("button");
+    delBtn.textContent = "このノードを削除";
+    delBtn.className = "danger";
+    delBtn.onclick = () => {
+      if (!confirm(`ノード「${n.id || "(id未設定)"}」を削除しますか？`)) return;
+      doc.nodes = doc.nodes.filter(x => x.uid !== n.uid);
+      renderNodes();
+      renderPreview();
+      saveDraft();
+    };
+
+    footRow.appendChild(dupBtn);
+    footRow.appendChild(delBtn);
+    body.appendChild(footRow);
+
+    card.appendChild(head);
+    card.appendChild(body);
+    box.appendChild(card);
+
+    // 重複IDチェック
+    if (n.id && doc.nodes.filter(x => x.id === n.id).length > 1) {
+      dupWarn.style.display = "block";
+    }
+  });
+}
+
+function renderPreview() {
+  const exportObj = buildExportObject();
+  document.getElementById("preview").value = JSON.stringify(exportObj, null, 2);
+}
+
+// =====================
+// イベント：基本設定
+// =====================
+document.getElementById("start-input").addEventListener("input", (e) => {
+  doc.start = e.target.value;
+  renderPreview();
+  saveDraft();
+});
+
+document.getElementById("image-keys-input").addEventListener("change", (e) => {
+  doc.imageKeys = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
+  if (doc.imageKeys.length === 0) doc.imageKeys = ["normal"];
+  renderNodes();
+  renderPreview();
+  saveDraft();
+});
+
+document.getElementById("btn-add-mainstory").addEventListener("click", () => {
+  doc.mainStory.push("");
+  renderMainStory();
+  saveDraft();
+});
+
+document.getElementById("btn-add-node").addEventListener("click", () => {
+  const n = blankNode("line");
+  n.text = "";
+  n.next = "idle";
+  doc.nodes.push(n);
+  renderNodes();
+  renderPreview();
+  saveDraft();
+
+  // 追加したカードまでスクロール
+  requestAnimationFrame(() => {
+    const cards = document.querySelectorAll(".node-card");
+    const last = cards[cards.length - 1];
+    if (last) last.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
+// =====================
+// 新規作成・読込・書き出し
+// =====================
+document.getElementById("btn-new").addEventListener("click", () => {
+  if (!confirm("編集中の内容は消えます。新規作成しますか？")) return;
+  doc = defaultDoc();
+  renderAll();
+  saveDraft();
+  toast("新規作成しました");
+});
+
+document.getElementById("btn-import-file").addEventListener("click", () => {
+  document.getElementById("file-input").click();
+});
+
+document.getElementById("file-input").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const obj = JSON.parse(reader.result);
+      importFromObject(obj);
+      toast("読み込みました");
+    } catch (err) {
+      alert("JSONの読み込みに失敗しました: " + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+document.getElementById("btn-import-text").addEventListener("click", () => {
+  const raw = document.getElementById("importArea").value;
+  if (!raw.trim()) {
+    alert("貼り付け欄が空です");
+    return;
+  }
+  try {
+    const obj = JSON.parse(raw);
+    importFromObject(obj);
+    toast("読み込みました");
+  } catch (err) {
+    alert("JSONの読み込みに失敗しました: " + err.message);
+  }
+});
+
+document.getElementById("btn-export").addEventListener("click", () => {
+  const exportObj = buildExportObject();
+  const jsonStr = JSON.stringify(exportObj, null, 2);
+  const blob = new Blob([jsonStr], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "talk.json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast("talk.json を書き出しました");
+});
+
+document.getElementById("btn-copy").addEventListener("click", async () => {
+  const jsonStr = document.getElementById("preview").value;
+  try {
+    await navigator.clipboard.writeText(jsonStr);
+    toast("コピーしました");
+  } catch (e) {
+    // フォールバック
+    const ta = document.getElementById("preview");
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+    toast("コピーしました");
+  }
+});
+
+// =====================
+// 起動
+// =====================
+(function boot() {
+  const draft = loadDraft();
+  if (draft && draft.nodes) {
+    doc = draft;
+  } else {
+    doc = defaultDoc();
+  }
+  renderAll();
+})();
+</script>
+
+</body>
+</html>

@@ -46,3 +46,8 @@ assets/
 - リセットボタンを `onclick` 属性から `addEventListener` に変更し、現在選択中のキャラクターのみリセットするように修正
 - キャラクター切り替え時にタイピングやタイマーを確実に止めるように修正
 - 立ち絵の `alt` 属性をキャラクター名と状態に応じて動的に設定
+
+## talk.json エディタ
+
+`talk-editor.html` で talk.json を作成・編集できます。
+公開URL: https://sazyoudnrk.github.io/liminal-dialogue/talk-editor.html
