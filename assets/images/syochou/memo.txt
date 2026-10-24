@@ -1,0 +1,4 @@
+normal.png 口開き
+normal2.png 目逸らし
+smile.png 目開き笑顔
+idle.png 口閉じ

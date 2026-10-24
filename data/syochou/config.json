@@ -1,0 +1,10 @@
+{
+  "name": "所長",
+  "basePath": "assets/images/syochou/",
+  "images": {
+    "normal": "normal.png",
+    "normal2": "normal2.png",
+    "smile": "smile.png",
+    "idle": "idle.png"
+  }
+}

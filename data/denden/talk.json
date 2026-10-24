@@ -1,0 +1,32 @@
+{
+    "mainStory": [],
+
+    "start": "first_root",
+    "nodes": {
+        "first_root": {
+            "random": ["f1"]
+        },
+        "f1": {
+            "text": "（でんでん の会話データはまだ用意されていません）",
+            "image": "normal",
+            "next": "idle"
+        },
+        "idle": {
+            "action": "idle"
+        },
+        "early_root": {
+            "random": ["e1"]
+        },
+        "normal_root": {
+            "random": ["e1"]
+        },
+        "late_root": {
+            "random": ["e1"]
+        },
+        "e1": {
+            "text": "……まだ話すことを用意していないみたいだ。",
+            "image": "normal",
+            "next": "idle"
+        }
+    }
+}

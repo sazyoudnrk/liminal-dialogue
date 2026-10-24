@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liminal Dialogue</title>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- キャラクター選択画面（最初に表示） -->
+  <div id="select-screen">
+    <h1 id="select-title">キャラクターを選んでください</h1>
+    <div id="character-select"></div>
+  </div>
+
+  <!-- ゲーム画面（キャラクター選択後に表示） -->
+  <div id="game-screen" class="hidden">
+
+    <button id="back-button">← キャラ選択に戻る</button>
+
+    <!-- ウィンドウ枠 -->
+    <div id="window">
+
+      <!-- ゲーム本体 -->
+      <div id="game">
+
+        <!-- 立ち絵 -->
+        <img id="character" src="" alt="">
+
+        <!-- テキストボックス -->
+        <div id="message-box">
+          <div id="name"></div>
+          <div id="text"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="choices"></div>
+
+    <button id="reset-button">リセット</button>
+
+  </div>
+
+  <!-- JS -->
+  <script src="script.js"></script>
+
+</body>
+</html>
