@@ -108,11 +108,13 @@
   // ---------------------------------------------
   // トピック選択
   // ---------------------------------------------
+  // 無効（disabled）のトピックは含めない
   function topicsIn(doc, pool) {
-    return doc.topics.filter(t => (t.pools || []).includes(pool));
+    return doc.topics.filter(t => !t.disabled && (t.pools || []).includes(pool));
   }
 
   function available(topic, ctx) {
+    if (topic.disabled) return false;
     if (topic.once && ctx.seen.has(topic.id)) return false;
     return evalCond(topic.if, ctx);
   }
@@ -209,6 +211,7 @@
         const id = target.slice(6);
         const t = this.doc.topics.find(x => x.id === id);
         if (!t) { this.log(`⚠ トピック ${id} がありません`); return this.finish(); }
+        if (t.disabled) { this.log(`⚠ トピック ${id} は無効なので終了しました`); return this.finish(); }
         this.topic = t;
         if (!this.visited.includes(t.id)) this.visited.push(t.id);
         this.log(`→ トピック ${t.id}`);
@@ -360,7 +363,8 @@
 
     for (const t of doc.topics || []) {
       const at = { topic: t.id };
-      if (!t.pools || !t.pools.length) add("warn", "出現場所が未設定なので、ジャンプ以外では出てきません", at);
+      if (t.disabled) { /* 無効なトピックは出現場所の警告を出さない */ }
+      else if (!t.pools || !t.pools.length) add("warn", "出現場所が未設定なので、ジャンプ以外では出てきません", at);
       for (const p of t.pools || []) if (!pools.includes(p)) add("error", `出現場所「${p}」は存在しません`, at);
       checkExpr(t.if, at);
       if (!t.scenes || !t.scenes.length) { add("error", "シーンがありません", at); continue; }
@@ -372,7 +376,12 @@
       }
       const targetOk = (g, sat) => {
         if (!g || g === "end") return;
-        if (g.startsWith("topic:")) { if (!topicIds.has(g.slice(6))) add("error", `ジャンプ先のトピック「${g.slice(6)}」がありません`, sat); return; }
+        if (g.startsWith("topic:")) {
+          const jt = (doc.topics || []).find(x => x.id === g.slice(6));
+          if (!jt) add("error", `ジャンプ先のトピック「${g.slice(6)}」がありません`, sat);
+          else if (jt.disabled && !t.disabled) add("warn", `ジャンプ先のトピック「${jt.id}」は無効です（そこで会話が終わります）`, sat);
+          return;
+        }
         if (!ids.has(g)) add("error", `行き先のシーン「${g}」がありません`, sat);
       };
 

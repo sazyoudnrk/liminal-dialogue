@@ -112,6 +112,10 @@
   .tag.first { background: #d9ecd9; color: #234; }
   .tag.story { background: #e6dcf5; color: #324; }
   .tag.hidden { background: #e2e2e2; color: #444; }
+  .tag.off { background: #f3d6d2; color: #7a2418; }
+  .chips.dim .chip:not(.off) { opacity: .45; }
+  .chip.off { border-style: dashed; }
+  .chip.off.on { background: var(--danger); border-color: var(--danger); border-style: solid; color: #fff; }
   details > summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px 0; list-style: none; }
   details > summary::before { content: "▸ "; }
   details[open] > summary::before { content: "▾ "; }
@@ -125,6 +129,7 @@
     display: flex; gap: 10px; align-items: center; width: 100%; text-align: left;
     background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
   }
+  .topic-row.off { opacity: .55; }
   .topic-row .tid { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted); }
   .topic-row .ttl { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .topic-row .meta { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; align-items: center; }
@@ -731,7 +736,8 @@ function renderTopicList() {
   for (const p of pools) counts[p] = LD.topicsIn(d, p).length;
 
   const match = (t, q) => {
-    if (S.filter !== "all" && !t.pools.includes(S.filter)) return false;
+    if (S.filter === "disabled") { if (!t.disabled) return false; }
+    else if (S.filter !== "all" && !t.pools.includes(S.filter)) return false;
     if (!q) return true;
     const hay = [t.id, t.title, t.memo].concat(t.scenes.flatMap(s => s.lines.map(l => l.text))).join("\n").toLowerCase();
     return hay.includes(q);
@@ -756,7 +762,8 @@ function renderTopicList() {
     search,
     h("div", { class: "scroll-x", style: "margin-bottom:10px" },
       h("button", { class: "chip" + (S.filter === "all" ? " on" : ""), onclick: () => { S.filter = "all"; render(); } }, `すべて ${d.topics.length}`),
-      pools.map(p => h("button", { class: "chip" + (S.filter === p ? " on" : ""), onclick: () => { S.filter = p; render(); } }, `${poolLabel(p)} ${counts[p]}`))),
+      pools.map(p => h("button", { class: "chip" + (S.filter === p ? " on" : ""), onclick: () => { S.filter = p; render(); } }, `${poolLabel(p)} ${counts[p]}`)),
+      h("button", { class: "chip" + (S.filter === "disabled" ? " on" : ""), onclick: () => { S.filter = "disabled"; render(); } }, `無効 ${d.topics.filter(t => t.disabled).length}`)),
     S.filter === "story" && h("p", { class: "help", style: "margin:-4px 0 8px" }, `ストーリーは上から順に、${d.rules.storyEvery || "?"}回話すごとに1つずつ出ます。↑↓で順番を変えられます。`),
     (fillList(), listBox));
 }
@@ -765,9 +772,9 @@ function topicRow(t, canOrder) {
   const iss = issuesFor(t.id);
   const branches = t.scenes.filter(s => s.next && s.next.type !== "end" && s.next.type !== "goto").length;
   const lines = t.scenes.reduce((n, s) => n + s.lines.length, 0);
-  const row = h("div", { class: "topic-row", role: "button", onclick: () => openTopic(t.id) },
+  const row = h("div", { class: "topic-row" + (t.disabled ? " off" : ""), role: "button", onclick: () => openTopic(t.id) },
     h("div", { class: "grow" },
-      h("div", { class: "row" }, h("span", { class: "tid" }, t.id), t.once && h("span", { class: "tag hidden" }, "1回きり"), t.if && h("span", { class: "tag hidden" }, "条件付き")),
+      h("div", { class: "row" }, h("span", { class: "tid" }, t.id), t.disabled && h("span", { class: "tag off" }, "無効"), t.once && h("span", { class: "tag hidden" }, "1回きり"), t.if && h("span", { class: "tag hidden" }, "条件付き")),
       h("div", { class: "ttl" }, topicSummary(t)),
       h("div", { class: "meta" },
         t.pools.map(p => h("span", { class: "tag " + p }, poolLabel(p))),
@@ -848,12 +855,19 @@ function renderTopicMeta(t) {
     h("input", { type: "text", value: t.title || "", placeholder: topicSummary(Object.assign({}, t, { title: "" })),
       oninput: e => { snap("title" + t.id); if (e.target.value) t.title = e.target.value; else delete t.title; changed(false); } }),
     h("label", { class: "f" }, "出てくる場所（複数選べます）"),
-    h("div", { class: "chips" }, allPools().map(p =>
+    h("div", { class: "chips" + (t.disabled ? " dim" : "") }, allPools().map(p =>
       h("button", { class: "chip" + (t.pools.includes(p) ? " on" : ""), onclick: () => {
         snap();
         t.pools = t.pools.includes(p) ? t.pools.filter(x => x !== p) : allPools().filter(x => x === p || t.pools.includes(x));
         changed(false); rerenderKeep();
-      } }, poolLabel(p)))),
+      } }, poolLabel(p))),
+      h("button", { class: "chip off" + (t.disabled ? " on" : ""), onclick: () => {
+        snap();
+        if (t.disabled) delete t.disabled; else t.disabled = true;
+        changed(false); rerenderKeep();
+        toast(t.disabled ? "無効にしました（ゲームには出ません）" : "有効に戻しました");
+      } }, "無効")),
+    t.disabled && h("p", { class: "help", style: "margin:4px 0 0" }, "無効のあいだはゲームに出てきません。ジャンプで来た場合もそこで会話が終わります。出てくる場所の設定はそのまま残ります。"),
     h("details", { open: !!(t.if || t.once || t.memo) || undefined },
       h("summary", null, "出現条件・メモ"),
       h("label", { class: "f" }, "出現条件（満たすときだけ選ばれる）"),
