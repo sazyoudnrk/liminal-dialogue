@@ -1,0 +1,43 @@
+{
+  "format": "liminal-dialogue/2",
+  "id": "denden",
+  "name": "でんでん",
+  "images": {
+    "base": "assets/images/denden/",
+    "idle": "idle",
+    "faces": { "normal": "normal.png", "idle": "idle.png" }
+  },
+  "rules": {
+    "storyEvery": 5,
+    "stages": [
+      { "id": "early", "label": "序盤", "until": 10 },
+      { "id": "normal", "label": "中盤", "until": 30 },
+      { "id": "late", "label": "終盤" }
+    ]
+  },
+  "vars": {},
+  "topics": [
+    {
+      "id": "f1",
+      "pools": ["first"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "（でんでん の会話データはまだ用意されていません）" }],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "e1",
+      "pools": ["early", "normal", "late"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "……まだ話すことを用意していないみたいだ。" }],
+          "next": { "type": "end" }
+        }
+      ]
+    }
+  ]
+}

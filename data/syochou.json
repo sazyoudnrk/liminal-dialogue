@@ -1,0 +1,441 @@
+{
+  "format": "liminal-dialogue/2",
+  "id": "syochou",
+  "name": "所長",
+  "images": {
+    "base": "assets/images/syochou/",
+    "idle": "idle",
+    "faces": { "normal": "normal.png", "normal2": "normal2.png", "smile": "smile.png", "idle": "idle.png" },
+    "notes": { "normal": "口開き", "normal2": "目逸らし", "smile": "目開き笑顔", "idle": "口閉じ" }
+  },
+  "rules": {
+    "storyEvery": 5,
+    "stages": [
+      { "id": "early", "label": "序盤", "until": 10 },
+      { "id": "normal", "label": "中盤", "until": 30 },
+      { "id": "late", "label": "終盤" }
+    ]
+  },
+  "vars": {},
+  "topics": [
+    {
+      "id": "main1",
+      "pools": ["story"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "私は不老不死なんだ。" },
+            { "text": "私の死んだ体が別であって、私が死ぬとあっちの体が生きていたことになる" },
+            { "text": "どうあれ、最後には独りだ。" },
+            { "text": "……" },
+            { "face": "normal2", "text": "つまらない話だったね" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "main2",
+      "pools": ["story"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "わたしの研究所に住み着いている女子高生、でんでんというのだけど" },
+            { "face": "normal2", "text": "いけに……" },
+            { "face": "normal", "text": "諸事情でここに置いている、ろくなことをしない、おやつ食べちゃうし。" },
+            { "text": "でも退屈凌ぎには誰かいたほうがいい、気がまぎれる。" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "main3",
+      "pools": ["story"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "昔慕っていた人がいた。でも裏切られた。" },
+            { "text": "もう誰も信じないことにしている。裏切られるなら裏切る側を選ぶ。" },
+            { "face": "normal2", "text": "君も酷い目に遭わないといいね。" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "f1",
+      "pools": ["first"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "初めまして。私は所長という。" },
+            { "face": "smile", "text": "話し相手なら喜んでなろう。退屈しているんだ、長生きなのでね。" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "e1",
+      "pools": ["early"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "久々に面白い小説を見つけた、話が終わるのが怖くてまだ読み終えていないけど。" },
+            { "text": "何かを消費してしまうのって怖くないか？" }
+          ],
+          "next": {
+            "type": "choice",
+            "options": [{ "label": "わからない", "goto": "a" }, { "label": "わかる気がする", "goto": "b" }]
+          }
+        },
+        {
+          "id": "a",
+          "lines": [
+            { "face": "normal", "text": "良質なもの、まして自分の好みなものはあまり多くない。" },
+            { "text": "それを一つ減らしてしまうのは満足感も喪失感も感じる。" },
+            { "face": "normal2", "text": "それが楽しむってことなのはわかっているけど……" }
+          ],
+          "next": { "type": "end" }
+        },
+        {
+          "id": "b",
+          "lines": [
+            { "face": "smile", "text": "わかってくれるかい。" },
+            { "face": "normal2", "text": "君は遊園地とか、綺麗な景色を見た時に「もうこれ以上楽しいことはないかも」と" },
+            { "text": "絶望するタイプかもね。" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "e2",
+      "pools": ["early"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "塩分の濃いものが好きなんだよな、米と同量の塩をかけて食べることがある" },
+            { "text": "多分君の思っている体の構造をしていないんだ、私は" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "e3",
+      "pools": ["early"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "トーラスとドーナツって響きも形状も似ているよな。" },
+            { "text": "……" },
+            { "text": "それだけだけど？" },
+            { "face": "normal2", "text": "一方的に何か話すのって大変なんだぞ" }
+          ],
+          "next": {
+            "type": "choice",
+            "options": [{ "label": "何か話す", "goto": "a" }, { "label": "話さない", "goto": "b" }]
+          }
+        },
+        {
+          "id": "a",
+          "lines": [
+            { "face": "normal", "text": "じゃあ話してみてよ" },
+            { "text": "……" },
+            { "text": "……" },
+            { "text": "な、分かっている。話せるわけないんだよ。" },
+            { "text": "そう作られていないんだ、君が返せるのは決められた選択肢だけ" },
+            { "text": "退屈だ、ほかのコマンドとか持ってないわけ？" }
+          ],
+          "next": { "type": "end" }
+        },
+        {
+          "id": "b",
+          "lines": [
+            { "face": "normal", "text": "……" },
+            { "text": "せいぜい君が退屈しないように楽しませないとな" },
+            { "text": "立ち去らないように" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "e4",
+      "pools": ["early"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "何年も生きていて、自分の気がつかなかった好きなものとか" },
+            { "text": "嫌いなものに気がつくことって結構あるね。" },
+            { "text": "例えばホラーは好きだけどグロテスクなものは嫌いとか" },
+            { "text": "ウーパールーパーがかわいいのですきとか" },
+            { "text": "自分のことさえ知り尽くすのには何年も時間がかかる" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "e5",
+      "pools": ["early"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "夢は見る方？私はよく見る方だ。" },
+            { "text": "存在しない、昔からの大切な友人がいたり、偽物の家族がいたり" },
+            { "text": "知らない場所を彷徨ったり、恐ろしいけど安心する" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "e6",
+      "pools": ["early"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "幽霊を見たことある？" },
+            { "text": "この町では少なくとも何人かの幽霊を見たことがあるよ。だいたい子供から青年くらいまでで" },
+            { "text": "みんな輪っかがついてるんだ。" },
+            { "text": "あれが幽霊なのかわからないけど、存在しない何かだけ" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "e7",
+      "pools": ["early"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "テキスト" }],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "e8",
+      "pools": ["early"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "テキスト" }],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "e9",
+      "pools": ["early"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "テキスト" }],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "e10",
+      "pools": ["early"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "テキスト" }],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "n1",
+      "pools": ["normal"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "人間は何かを自分の代わりにさせるのが好きみたいだね。" },
+            { "text": "自分の仕事を別のものにさせて、他にやりたいことが思いつく人はどれだけいるのだろう。" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "n2",
+      "pools": ["normal"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "でんでんがよく猫の動画を見てる。" },
+            { "text": "ふわふわじゃなくて、ぱやぱやのおけけなんだよ〜って見せてくるんだよ。" },
+            { "text": "小さい生き物って力加減がわからなくて苦手なんだけど、ちょっと触ってみたくなった。猫ちゃんいないかな" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "n3",
+      "pools": ["normal"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "テキスト" }],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "n4",
+      "pools": ["normal"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "テキスト" }],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "n5",
+      "pools": ["normal"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "テキスト" }],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "n6",
+      "pools": ["normal"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "テキスト" }],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "n7",
+      "pools": ["normal"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "テキスト" }],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "n8",
+      "pools": ["normal"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "テキスト" }],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "n9",
+      "pools": ["normal"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "テキスト" }],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "n10",
+      "pools": ["normal"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "テキスト" }],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "l1",
+      "pools": ["late"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "自由って幸せだと思うかい？" },
+            { "text": "私は、人間が抑圧されていないと幸せになれない生き物だと思うんだ。" },
+            { "text": "適度に不幸じゃないと幸せをみつけられない。" },
+            { "text": "死なない体で自由を手に入れて、何に幸せを感じればいいんだろう。よく考えるんだ。" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "l2",
+      "pools": ["late"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "きみが私を友人だと認識しなければ。もうすこしくらいは話し相手になれるだろう。" },
+            { "text": "私は誰の記憶にも残れないんだ。夢で会った知人か何かと思ってくれて構わない。" },
+            { "text": "数ヶ月後、数年後の君の記憶には少しの記憶さえ残らないだろうけど、私は覚えているからね。" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "l3",
+      "pools": ["late"],
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [
+            { "face": "normal", "text": "昔話なんだけど、私にも親しい人がいた。恩師というべきか。" },
+            { "text": "ただ、その人は私を利用して、ご覧の通り死ねなくなってしまったよ。" },
+            { "text": "信じた上での破滅と、疑った上での保身、どちらが幸せだろうな？" },
+            { "text": "殺したいほど憎い嘘つきなのに、あの優しさが嘘だったとは思えないんだよ。" }
+          ],
+          "next": { "type": "end" }
+        }
+      ]
+    },
+    {
+      "id": "empty",
+      "pools": ["hidden"],
+      "memo": "旧データで未使用だったノード",
+      "scenes": [
+        {
+          "id": "start",
+          "lines": [{ "face": "normal", "text": "……もう話すことはない" }],
+          "next": { "type": "end" }
+        }
+      ]
+    }
+  ]
+}

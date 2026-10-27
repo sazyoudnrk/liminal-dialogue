@@ -1,53 +1,31 @@
 # Liminal Dialogue
 
-公開URL: https://sazyoudnrk.github.io/liminal-dialogue/
+キャラクターとタップで会話するゲーム。
 
-## マルチキャラクター対応版
+- ゲーム: https://sazyoudnrk.github.io/liminal-dialogue/
+- 会話エディタ: https://sazyoudnrk.github.io/liminal-dialogue/talk-editor.html
 
-## フォルダ構成
+## ファイル構成
 
 ```
-index.html
-style.css
-script.js
-characters.json          ← キャラクター一覧（表示名とID）
-data/
-  syochou/
-    config.json           ← 立ち絵パスなどキャラ固有設定
-    talk.json              ← セリフ・分岐データ
-assets/
-  images/
-    syochou/
-      idle.png / normal.png / normal2.png / smile.png
+index.html / style.css / script.js   ゲーム画面
+engine.js                            会話の進行・条件判定（ゲームとエディタで共用）
+talk-editor.html                     会話エディタ
+characters.json                      キャラクターの並び順（キャラIDの配列）
+data/<キャラID>.json                 キャラ1人分のデータ（画像設定・進行ルール・変数・会話）
+assets/images/<キャラID>/            立ち絵
+FORMAT.md                            データ形式の説明
 ```
 
-## 新しいキャラクターを追加する手順
+## 会話を編集する
 
-1. `data/<新しいid>/config.json` と `data/<新しいid>/talk.json` を用意する
-   （`data/syochou/` の中身をコピーして書き換えるのが早いです）
-2. `assets/images/<新しいid>/` に立ち絵画像を置く
-3. `characters.json` に1行追加する
+1. 会話エディタを開いてキャラを選ぶ（編集内容は端末に自動で下書き保存されます）
+2. 編集したら「ファイル」→「JSONをコピー」
+3. 「GitHubでこのファイルを開く」から `data/<キャラID>.json` に貼り付けてコミット
 
-```json
-[
-  { "id": "syochou", "name": "所長" },
-  { "id": "新しいid", "name": "表示名" }
-]
-```
+## キャラクターを追加する
 
-これだけで画面上部にキャラクター選択ボタンが自動で増え、進行状況（会話回数・既読フラグなど）もキャラクターごとに個別のlocalStorageキーで保存されます。
-
-## 主な変更点（レビュー対応）
-
-- `skipTyping()` が2回定義されていた重複を解消
-- `mainIndex` / `talkCount` / `seenIds` がキャラクター固定になっていた問題を修正し、`switchCharacter()` で毎回読み直すように変更
-- コメントアウトされた死んだコード（`startFirst`）を削除
-- `fetch` にエラーハンドリングを追加（データが見つからない場合に例外を投げる）
-- リセットボタンを `onclick` 属性から `addEventListener` に変更し、現在選択中のキャラクターのみリセットするように修正
-- キャラクター切り替え時にタイピングやタイマーを確実に止めるように修正
-- 立ち絵の `alt` 属性をキャラクター名と状態に応じて動的に設定
-
-## talk.json エディタ
-
-`talk-editor.html` で talk.json を作成・編集できます。
-公開URL: https://sazyoudnrk.github.io/liminal-dialogue/talk-editor.html
+1. エディタの「ファイル」→「新しいキャラを作る」で作成し、JSONを書き出す
+2. `data/<キャラID>.json` として置く
+3. 立ち絵を `assets/images/<キャラID>/` に置く
+4. `characters.json` にキャラIDを追加する（ここに並べた順で選択画面に出ます）

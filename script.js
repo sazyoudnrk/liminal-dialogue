@@ -1,579 +1,267 @@
-// =====================
-// 設定・状態
-// =====================
-let cache = {};
-let charConfig = {};
-let characterList = [];   // characters.json の内容
-let currentCharacter = null;
-
-let state = "idle";
-let currentChunks = [];
-let chunkIndex = 0;
-let typingTimer = null;
-let isTyping = false;
-let fullText = "";
-let currentNode = null;
-
-// キャラクターごとに変化する進行状況
-// switchCharacter() のたびに読み直される（固定constにしない）
-let mainIndex = 0;
-let talkCount = 0;
-let seenIds = [];
-
+// =====================================================
+// Liminal Dialogue ゲーム本体
+// 会話の進め方は engine.js、データ形式は FORMAT.md を参照
+// =====================================================
 const TYPE_SPEED = 35;
-const LAST_CHARACTER_KEY = "lastCharacter";
+const SAVE_PREFIX = "liminal-dialogue:v2:";
+const LAST_CHARACTER_KEY = "liminal-dialogue:lastCharacter";
 
-// =====================
-// localStorage キー（常に現在のキャラクター基準で組み立てる）
-// =====================
-function keyFor(name) {
-  return `${name}_${currentCharacter}`;
-}
+const $ = id => document.getElementById(id);
 
-function saveMainIndex() {
-  localStorage.setItem(keyFor("mainIndex"), mainIndex);
-}
+const game = {
+  doc: null,        // 現在のキャラクターデータ
+  progress: null,   // 現在のキャラクターの進行状況
+  runner: null,     // 再生中の会話（なければ null = 待機中）
+  step: null,       // 表示中のステップ
+  typing: false,
+  timer: null,
+};
 
-function saveTalkCount() {
-  localStorage.setItem(keyFor("talkCount"), talkCount);
-}
+// ---------------------------------------------
+// 読み込み・保存
+// ---------------------------------------------
+const docCache = {};
 
-function saveSeen() {
-  localStorage.setItem(keyFor("seen"), JSON.stringify(seenIds));
-}
-
-function hasSeenFirst() {
-  return localStorage.getItem(keyFor("seen_first")) === "true";
-}
-
-function markSeenFirst() {
-  localStorage.setItem(keyFor("seen_first"), "true");
-}
-
-// 現在のキャラクターの保存済み進行状況をメモリに読み込む
-function loadProgressFromStorage() {
-  mainIndex = Number(localStorage.getItem(keyFor("mainIndex")) || 0);
-  talkCount = Number(localStorage.getItem(keyFor("talkCount")) || 0);
-  seenIds = JSON.parse(localStorage.getItem(keyFor("seen")) || "[]");
-}
-
-// =====================
-// 読み込み
-// =====================
 async function fetchJson(path) {
-  const res = await fetch(path);
-  if (!res.ok) {
-    throw new Error(`Failed to load ${path}: ${res.status}`);
-  }
+  const res = await fetch(path, { cache: "no-cache" });
+  if (!res.ok) throw new Error(`${path} を読み込めません (${res.status})`);
   return res.json();
 }
 
-async function load(category) {
-  const key = `${currentCharacter}_${category}`;
-  if (cache[key]) return cache[key];
-
-  const data = await fetchJson(`data/${currentCharacter}/${category}.json`);
-  cache[key] = data;
-  return data;
+async function loadDoc(id) {
+  if (!docCache[id]) docCache[id] = await fetchJson(`data/${id}.json`);
+  return docCache[id];
 }
 
-async function loadCharacterConfig(id) {
-  return fetchJson(`data/${id}/config.json`);
+// 旧形式（mainIndex_xxx / talkCount_xxx など）の保存データは消さずに残している。
+// 引き継ぎ機能を作るときは、ここで旧キーを読んで新形式に変換する。
+function loadProgress(doc) {
+  try {
+    const raw = localStorage.getItem(SAVE_PREFIX + doc.id);
+    if (raw) {
+      const p = JSON.parse(raw);
+      return Object.assign(LD.newProgress(doc), p, { vars: Object.assign({}, doc.vars || {}, p.vars || {}) });
+    }
+  } catch (e) {
+    console.warn("進行状況を読み込めませんでした", e);
+  }
+  return LD.newProgress(doc);
 }
 
-async function loadCharacterList() {
-  return fetchJson("characters.json");
+function saveProgress() {
+  try {
+    localStorage.setItem(SAVE_PREFIX + game.doc.id, JSON.stringify(game.progress));
+  } catch (e) {
+    console.warn("進行状況を保存できませんでした", e);
+  }
 }
 
-// =====================
-// ユーティリティ
-// =====================
-function resolveImage(key) {
-  return charConfig.basePath + charConfig.images[key];
+function imageUrl(doc, face) {
+  const file = doc.images.faces[face];
+  return file ? doc.images.base + file : "";
 }
 
-function pickRandom(array) {
-  return array[Math.floor(Math.random() * array.length)];
-}
-
-function splitText(text) {
-  return text.split("\n");
-}
-
-// =====================
-// UI制御
-// =====================
-function openBox() {
-  document.getElementById("message-box").classList.add("active");
-}
-
-function closeBox() {
-  document.getElementById("message-box").classList.remove("active");
-}
-
-function clearIndicator() {
-  const old = document.getElementById("indicator");
-  if (old) old.remove();
-}
-
-function clearChoices() {
-  const box = document.getElementById("choices");
+// ---------------------------------------------
+// 画面切り替え
+// ---------------------------------------------
+async function renderSelectScreen(ids) {
+  const box = $("character-select");
   box.innerHTML = "";
-  box.style.display = "none";
-}
-
-// =====================
-// キャラクター選択画面
-// =====================
-async function renderSelectScreen() {
-  const box = document.getElementById("character-select");
-  box.innerHTML = "";
-
-  for (const c of characterList) {
-    const config = await loadCharacterConfig(c.id);
-
-    const card = document.createElement("div");
+  for (const id of ids) {
+    let doc;
+    try {
+      doc = await loadDoc(id);
+    } catch (e) {
+      console.error(e);
+      continue;
+    }
+    const card = document.createElement("button");
     card.className = "character-card";
-    card.dataset.id = c.id;
-
     const img = document.createElement("img");
-    img.src = config.basePath + (config.images.idle || config.images.normal);
-    img.alt = c.name;
-
+    img.src = imageUrl(doc, doc.images.idle) || imageUrl(doc, Object.keys(doc.images.faces)[0]);
+    img.alt = doc.name;
     const label = document.createElement("div");
     label.className = "character-name";
-    label.textContent = c.name;
-
-    card.appendChild(img);
-    card.appendChild(label);
-    card.addEventListener("click", () => enterCharacter(c.id));
-
+    label.textContent = doc.name;
+    card.append(img, label);
+    card.addEventListener("click", () => enterCharacter(id));
     box.appendChild(card);
   }
 }
 
-function showSelectScreen() {
-  document.getElementById("select-screen").classList.remove("hidden");
-  document.getElementById("game-screen").classList.add("hidden");
+function showScreen(name) {
+  $("select-screen").classList.toggle("hidden", name !== "select");
+  $("game-screen").classList.toggle("hidden", name !== "game");
 }
 
-function showGameScreen() {
-  document.getElementById("select-screen").classList.add("hidden");
-  document.getElementById("game-screen").classList.remove("hidden");
-}
-
-// 選択画面からキャラクターを選んでゲーム画面に入る
 async function enterCharacter(id) {
-  await switchCharacter(id);
-  showGameScreen();
-}
-
-// 現在のキャラクターのゲームを終了して選択画面に戻る
-function backToSelectScreen() {
-  clearTimeout(typingTimer);
-  isTyping = false;
-  clearIndicator();
-  clearChoices();
-  closeBox();
-
-  currentCharacter = null;
-  showSelectScreen();
-}
-
-async function switchCharacter(id) {
-  // 進行中のタイピングやタイマーを止めてから切り替える
-  clearTimeout(typingTimer);
-  isTyping = false;
-  clearIndicator();
-  clearChoices();
-  closeBox();
-
-  currentCharacter = id;
-  localStorage.setItem(LAST_CHARACTER_KEY, id);
-
-  charConfig = await loadCharacterConfig(id);
-  document.getElementById("name").textContent = charConfig.name || "";
-
-  loadProgressFromStorage();
-
-  state = "idle";
-  currentNode = null;
+  stopTyping();
+  game.doc = await loadDoc(id);
+  game.progress = loadProgress(game.doc);
+  try { localStorage.setItem(LAST_CHARACTER_KEY, id); } catch (e) { /* 保存できなくても続行 */ }
+  $("name").textContent = game.doc.name;
   showIdle();
+  showScreen("game");
 }
 
-// =====================
-// セリフ表示
-// =====================
-function startLine(line) {
-  currentNode = line;
-  currentChunks = splitText(line.text);
-  chunkIndex = 0;
-
-  document.getElementById("character").src = resolveImage(line.image);
-
-  showChunk();
+function backToSelect() {
+  stopTyping();
+  game.runner = null;
+  game.doc = null;
+  showScreen("select");
 }
 
-function showChunk() {
-  typeLine(currentChunks[chunkIndex]);
-}
-
-// =====================
-// 進行
-// =====================
-function nextChunk() {
-  if (skipTyping()) return;
-
-  chunkIndex++;
-
-  // まだ続きがある
-  if (chunkIndex < currentChunks.length) {
-    showChunk();
-    return;
-  }
-
-  // ===== セリフ終了 =====
-
-  // 分岐ノード対応（最優先）
-  if (currentNode) {
-
-    // 選択肢がある
-    if (currentNode.choices) {
-      renderChoices(currentNode.choices);
-      return;
-    }
-
-    // 自動遷移
-    if (currentNode.next) {
-      runNode(currentNode.next);
-      return;
-    }
-  }
-
-  // 従来処理（fallback）
-  if (state === "first") {
-    state = "first_end";
-    closeBox();
-    showIdle();
-
-  } else if (state === "talk") {
-    state = "talk_end";
-
-    talkCount++;
-    saveTalkCount();
-
-    closeBox();
-    showIdle();
-  }
-}
-
-// =====================
-// タップ操作
-// =====================
-document.addEventListener("click", async (e) => {
-  // キャラクター選択・リセット・戻るボタン自体のクリックはゲーム進行として扱わない
-  if (e.target.closest("#character-select") || e.target.closest("#reset-button") || e.target.closest("#back-button")) {
-    return;
-  }
-
-  if (document.getElementById("choices").children.length > 0) return;
-
-  if (isTyping) {
-    skipTyping();
-    return;
-  }
-
-  switch (state) {
-    case "idle":
-      if (!hasSeenFirst()) {
-        runNode("first_root");
-        markSeenFirst();
-      } else if (talkCount > 0 && talkCount % 5 === 0) {
-        runNode("main_root");
-      } else {
-        runNodeByTalkCount();
-      }
-      break;
-
-    case "first":
-      nextChunk();
-      break;
-
-    case "first_end":
-      runNode("main_root");
-      break;
-
-    case "talk":
-      nextChunk();
-      break;
-
-    case "node":
-      nextChunk();
-      break;
-
-    case "talk_end":
-      state = "idle";
-      showIdle();
-      break;
-  }
-});
-
-// =====================
-// 初期化
-// =====================
-async function init() {
-  document.getElementById("reset-button").addEventListener("click", resetGame);
-  document.getElementById("back-button").addEventListener("click", backToSelectScreen);
-
-  characterList = await loadCharacterList();
-
-  if (characterList.length === 0) {
-    console.error("characters.json にキャラクターが登録されていません");
-    return;
-  }
-
-  await renderSelectScreen();
-  showSelectScreen();
-}
-
-function selectTable(data) {
-  if (talkCount === 0) return data.tables.first;
-  if (talkCount < 10) return data.tables.early;
-  if (talkCount < 30) return data.tables.mid;
-  return data.tables.late;
-}
-
-function filterUnseen(lines) {
-  return lines.filter(l => !seenIds.includes(l.id));
-}
-
-function parseText(text) {
-  const regex = /{(.*?)}/g;
-  let result = [];
-  let lastIndex = 0;
-  let match;
-
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      result.push({ type: "text", value: text.slice(lastIndex, match.index) });
-    }
-
-    const tag = match[1];
-
-    if (tag.startsWith("face:")) {
-      result.push({ type: "face", value: tag.split(":")[1] });
-    } else if (tag.startsWith("bg:")) {
-      result.push({ type: "bg", value: tag.split(":")[1] });
-    } else if (tag.startsWith("wait:")) {
-      result.push({ type: "wait", value: Number(tag.split(":")[1]) });
-    } else if (tag === "shake") {
-      result.push({ type: "shake" });
-    }
-
-    lastIndex = regex.lastIndex;
-  }
-
-  if (lastIndex < text.length) {
-    result.push({ type: "text", value: text.slice(lastIndex) });
-  }
-
-  return result;
-}
-
-function resetGame() {
-  // 現在選択中のキャラクターの進行状況だけをリセットする
-  localStorage.removeItem(keyFor("talkCount"));
-  localStorage.removeItem(keyFor("seen"));
-  localStorage.removeItem(keyFor("mainIndex"));
-  localStorage.removeItem(keyFor("seen_first"));
-  location.reload();
+// ---------------------------------------------
+// 表示
+// ---------------------------------------------
+function setFace(face) {
+  const el = $("character");
+  const url = imageUrl(game.doc, face);
+  if (url) el.src = url;
+  el.alt = `${game.doc.name}（${face}）`;
 }
 
 function showIdle() {
-  const charEl = document.getElementById("character");
-  charEl.alt = charConfig.name ? `${charConfig.name}（待機）` : "character";
+  game.runner = null;
+  game.step = null;
+  $("message-box").classList.remove("active");
+  clearChoices();
+  setFace(game.doc.images.idle);
+}
 
-  if (charConfig.images.idle) {
-    charEl.src = resolveImage("idle");
-  } else {
-    // fallback（なければnormal）
-    charEl.src = resolveImage("normal");
-  }
+function clearChoices() {
+  const box = $("choices");
+  box.innerHTML = "";
+  box.style.display = "none";
+}
+
+function showIndicator() {
+  const span = document.createElement("span");
+  span.id = "indicator";
+  span.textContent = "▼";
+  $("text").appendChild(span);
+}
+
+function stopTyping() {
+  clearTimeout(game.timer);
+  game.typing = false;
 }
 
 function typeLine(text) {
-  const textEl = document.getElementById("text");
+  const el = $("text");
+  stopTyping();
+  el.textContent = "";
+  const tokens = LD.parseText(text);
+  let ti = 0, ci = 0;
+  game.typing = true;
 
-  clearTimeout(typingTimer);
-  isTyping = true;
-  fullText = text;
-
-  clearIndicator();
-  textEl.innerText = "";
-
-  const tokens = parseText(text);
-
-  let tokenIndex = 0;
-  let charIndex = 0;
-
-  function loop() {
-    if (!isTyping) return; // 暴走防止
-
-    if (tokenIndex >= tokens.length) {
-      isTyping = false;
-
-      clearIndicator();
-      const span = document.createElement("span");
-      span.id = "indicator";
-      span.innerText = "▼";
-      textEl.appendChild(span);
+  const loop = () => {
+    if (!game.typing) return;
+    if (ti >= tokens.length) {
+      game.typing = false;
+      showIndicator();
       return;
     }
-
-    const token = tokens[tokenIndex];
-
-    if (token.type === "text") {
-      textEl.innerText += token.value[charIndex++];
-      if (charIndex >= token.value.length) {
-        tokenIndex++;
-        charIndex = 0;
-      }
-      typingTimer = setTimeout(loop, TYPE_SPEED);
-    }
-
-    else if (token.type === "face") {
-      document.getElementById("character").src = resolveImage(token.value);
-      tokenIndex++;
+    const tk = tokens[ti];
+    if (tk.type === "text") {
+      el.textContent += tk.value[ci++] || "";
+      if (ci >= tk.value.length) { ti++; ci = 0; }
+      game.timer = setTimeout(loop, TYPE_SPEED);
+    } else if (tk.type === "wait") {
+      ti++;
+      game.timer = setTimeout(loop, tk.value);
+    } else if (tk.type === "shake") {
+      const g = $("game");
+      g.classList.remove("shake");
+      void g.offsetWidth; // アニメーションを毎回やり直す
+      g.classList.add("shake");
+      ti++;
       loop();
     }
-
-    else if (token.type === "bg") {
-      const gameEl = document.getElementById("game");
-      gameEl.style.backgroundImage = `url(${resolveImage(token.value)})`;
-      tokenIndex++;
-      loop();
-    }
-
-    else if (token.type === "wait") {
-      tokenIndex++;
-      typingTimer = setTimeout(loop, token.value);
-    }
-
-    else if (token.type === "shake") {
-      const gameEl = document.getElementById("game");
-      gameEl.classList.add("shake");
-      setTimeout(() => gameEl.classList.remove("shake"), 300);
-      tokenIndex++;
-      loop();
-    }
-  }
-
+  };
   loop();
 }
 
 function skipTyping() {
-  if (!isTyping) return false;
-
-  isTyping = false;
-  clearTimeout(typingTimer);
-
-  const textEl = document.getElementById("text");
-
-  clearIndicator();
-
-  const clean = fullText.replace(/{.*?}/g, "");
-  textEl.innerText = clean;
-
-  const span = document.createElement("span");
-  span.id = "indicator";
-  span.innerText = "▼";
-  textEl.appendChild(span);
-
+  if (!game.typing) return false;
+  stopTyping();
+  $("text").textContent = LD.stripTags(game.step.text);
+  showIndicator();
   return true;
 }
 
-async function runNode(id) {
-
-  // main_rootは順番に選ぶ
-  if (id === "main_root") {
-    const data = await load("talk");
-    const list = data.mainStory;
-    if (mainIndex >= list.length) {
-      runNodeByTalkCount();
-      return;
-    }
-    const next = list[mainIndex];
-    mainIndex++;
-    saveMainIndex();
-    return runNode(next);
-  }
-
-  const data = await load("talk");
-  const node = data.nodes[id];
-
-  if (!node) {
-    console.warn("node not found:", id);
-    return;
-  }
-
-  // randomは未読フィルタしてランダム選択
-  if (node.random) {
-    let candidates = node.random.filter(id => !seenIds.includes(id));
-    if (candidates.length === 0) {
-      candidates = node.random;
-    }
-    const next = pickRandom(candidates);
-    const nextNode = data.nodes[next];
-    if (nextNode && nextNode.text) {
-      seenIds.push(next);
-      saveSeen();
-    }
-    return runNode(next);
-  }
-
-  // idle処理
-  if (node.action === "idle") {
-    talkCount++;
-    saveTalkCount();
-    state = "idle";
-    closeBox();
+function showStep(step) {
+  game.step = step;
+  if (step.kind === "line") {
+    $("message-box").classList.add("active");
+    setFace(step.face);
+    typeLine(step.text);
+  } else if (step.kind === "choice") {
+    renderChoices(step.options);
+  } else {
+    saveProgress();
     showIdle();
+  }
+}
+
+function renderChoices(options) {
+  const box = $("choices");
+  box.innerHTML = "";
+  for (const o of options) {
+    const btn = document.createElement("button");
+    btn.textContent = o.label;
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      clearChoices();
+      showStep(game.runner.choose(o.index));
+    });
+    box.appendChild(btn);
+  }
+  box.style.display = "block";
+}
+
+// ---------------------------------------------
+// 操作
+// ---------------------------------------------
+function startTalk() {
+  const { topic } = LD.pickTopic(game.doc, game.progress);
+  if (!topic) {
+    console.warn("話せるトピックがありません");
     return;
   }
-
-  // セリフ表示
-  currentNode = node;
-  openBox();
-  startLine(node);
-  state = "node";
+  game.runner = new LD.Runner(game.doc, game.progress);
+  showStep(game.runner.start(topic));
 }
 
-function runNodeByTalkCount() {
-  if (talkCount < 10) runNode("early_root");
-  else if (talkCount < 30) runNode("normal_root");
-  else runNode("late_root");
+function onTap(e) {
+  if (!game.doc) return;
+  if (e.target.closest("button")) return; // ボタン類はそれぞれの処理に任せる
+  if (game.step && game.step.kind === "choice") return;
+  if (skipTyping()) return;
+  if (!game.runner) startTalk();
+  else showStep(game.runner.next());
 }
 
-function handleChoice(next) {
-  clearChoices();
-
-  // クリックイベントの伝播を止める必要があるので
-  // 少し遅延してrunNodeを呼ぶ
-  setTimeout(() => runNode(next), 0);
+function resetProgress() {
+  if (!game.doc) return;
+  try { localStorage.removeItem(SAVE_PREFIX + game.doc.id); } catch (e) { /* noop */ }
+  stopTyping();
+  game.progress = LD.newProgress(game.doc);
+  showIdle();
 }
 
-function renderChoices(choices) {
-  const box = document.getElementById("choices");
-  box.innerHTML = "";
+async function init() {
+  $("back-button").addEventListener("click", backToSelect);
+  $("reset-button").addEventListener("click", resetProgress);
+  $("game-screen").addEventListener("click", onTap);
 
-  choices.forEach(c => {
-    const btn = document.createElement("button");
-    btn.innerText = c.text;
-    btn.onclick = () => handleChoice(c.next);
-    box.appendChild(btn);
-  });
-
-  box.style.display = "block";
+  const ids = await fetchJson("characters.json");
+  if (!ids.length) {
+    console.error("characters.json にキャラクターが登録されていません");
+    return;
+  }
+  await renderSelectScreen(ids);
+  showScreen("select");
 }
 
 init();

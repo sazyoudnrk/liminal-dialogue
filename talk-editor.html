@@ -2,963 +2,1552 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>会話JSONエディタ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>会話エディタ — Liminal Dialogue</title>
 <style>
   :root {
     --bg: #f4f3ee;
     --card: #ffffff;
+    --sub: #faf9f4;
+    --ink: #2b2820;
+    --muted: #8a8473;
+    --line: #e2ddcc;
     --accent: #b8892a;
-    --accent-soft: #f7c94b;
-    --border: #ddd8c8;
-    --text: #2b2820;
+    --accent-soft: #f7e3a8;
+    --head: #2b2820;
     --danger: #c0392b;
+    --warn: #c47f0a;
+    --info: #4f7aa8;
+    --ok: #3f8f5a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17161a; --card: #222126; --sub: #1c1b20; --ink: #ece8dc; --muted: #9a9484;
+      --line: #35333b; --accent: #e0b04a; --accent-soft: #4a3d1c; --head: #0f0e12;
+      --danger: #ff6b5b; --warn: #f0a83a; --info: #7fb0e8; --ok: #6cc38a;
+    }
   }
   * { box-sizing: border-box; }
+  html, body { margin: 0; }
   body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    padding-bottom: 100px;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    background: var(--bg); color: var(--ink);
+    -webkit-text-size-adjust: 100%;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
   }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  input, select, textarea { font-size: 16px; } /* iOSで拡大されないように */
+  button { cursor: pointer; }
+  .hidden { display: none !important; }
+
+  /* ---------- ヘッダー ---------- */
   header {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    background: #2b2820;
-    color: #fff;
-    padding: 12px 14px;
+    position: sticky; top: 0; z-index: 30;
+    background: var(--head); color: #fff;
+    padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
+    display: flex; align-items: center; gap: 8px;
   }
-  header h1 {
-    margin: 0 0 10px 0;
-    font-size: 17px;
+  header .title { font-weight: 700; font-size: 15px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header .title small { font-weight: 400; opacity: .6; margin-left: 6px; }
+  header .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f7c94b; margin-left: 6px; vertical-align: middle; }
+  .hbtn {
+    background: rgba(255,255,255,.1); border: 0; color: #fff; border-radius: 8px;
+    min-width: 36px; height: 36px; padding: 0 10px; font-size: 15px;
   }
-  .header-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+  .hbtn:disabled { opacity: .3; }
+  .hbtn.primary { background: #f7c94b; color: #2b2820; font-weight: 700; }
+
+  main { max-width: 760px; margin: 0 auto; padding: 12px; }
+
+  /* ---------- 下部タブ ---------- */
+  nav.tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    display: flex; background: var(--card); border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom);
   }
-  button {
-    font-size: 14px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--card);
-    color: var(--text);
-    cursor: pointer;
+  nav.tabs button {
+    flex: 1; border: 0; background: none; padding: 10px 0 8px; font-size: 12px; color: var(--muted);
+    display: flex; flex-direction: column; align-items: center; gap: 2px; position: relative;
   }
-  header button {
-    background: #3d392c;
-    color: #fff;
-    border-color: #555;
+  nav.tabs button .ic { font-size: 20px; line-height: 1; }
+  nav.tabs button.on { color: var(--accent); font-weight: 700; }
+  .badge {
+    position: absolute; top: 4px; left: calc(50% + 6px);
+    background: var(--danger); color: #fff; border-radius: 9px; font-size: 10px; padding: 1px 5px; font-weight: 700;
   }
-  button.primary {
-    background: var(--accent-soft);
-    border-color: var(--accent);
-    font-weight: bold;
+  .badge.warn { background: var(--warn); }
+
+  /* ---------- 共通部品 ---------- */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .grow { flex: 1; min-width: 0; }
+  label.f { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  label.f:first-child { margin-top: 0; }
+  input[type=text], input[type=search], input[type=number], select, textarea {
+    width: 100%; background: var(--sub); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
   }
-  button.danger {
-    color: var(--danger);
-    border-color: var(--danger);
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  textarea { resize: none; line-height: 1.55; overflow: hidden; min-height: 42px; display: block; }
+  input.mono, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .btn {
+    border: 1px solid var(--line); background: var(--card); border-radius: 8px; padding: 7px 12px; font-size: 14px; white-space: nowrap;
   }
-  button.small {
-    padding: 4px 8px;
-    font-size: 12px;
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .btn.danger { color: var(--danger); }
+  .btn.ghost { border-color: transparent; background: none; }
+  .btn.small { padding: 4px 8px; font-size: 13px; }
+  .btn.block { width: 100%; padding: 10px; }
+  .icon-btn { border: 0; background: none; color: var(--muted); font-size: 16px; padding: 6px; min-width: 32px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 13px; background: var(--card);
   }
-  main {
-    padding: 14px;
-    max-width: 640px;
-    margin: 0 auto;
+  .chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .scroll-x { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .scroll-x .chip { flex: none; }
+  .tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--ink); }
+  .tag.first { background: #d9ecd9; color: #234; }
+  .tag.story { background: #e6dcf5; color: #324; }
+  .tag.hidden { background: #e2e2e2; color: #444; }
+  details > summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px 0; list-style: none; }
+  details > summary::before { content: "▸ "; }
+  details[open] > summary::before { content: "▾ "; }
+  .empty { text-align: center; color: var(--muted); padding: 32px 12px; }
+  .help { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 4px; }
+  .help code { background: var(--sub); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+
+  /* ---------- トピック一覧 ---------- */
+  .search { margin-bottom: 8px; }
+  .topic-row {
+    display: flex; gap: 10px; align-items: center; width: 100%; text-align: left;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
   }
-  section {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px;
-    margin-bottom: 16px;
+  .topic-row .tid { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted); }
+  .topic-row .ttl { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topic-row .meta { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; align-items: center; }
+  .topic-row .warn-dot { color: var(--danger); font-weight: 700; }
+  .order-btns { display: flex; flex-direction: column; }
+  .order-btns button { border: 0; background: none; color: var(--muted); padding: 0 4px; font-size: 14px; }
+  .fab {
+    position: fixed; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 25;
+    width: 54px; height: 54px; border-radius: 50%; border: 0; background: var(--accent); color: #fff; font-size: 28px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.25);
   }
-  section > h2 {
-    margin: 0 0 10px 0;
-    font-size: 15px;
-    color: var(--accent);
+
+  /* ---------- トピック編集 ---------- */
+  .back { border: 0; background: none; color: var(--accent); font-size: 15px; padding: 4px 0 10px; }
+  .flow { font-size: 13px; line-height: 1.7; }
+  .flow .fs { display: flex; gap: 6px; align-items: baseline; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+  .flow .fs:last-child { border-bottom: 0; }
+  .flow .sid { font-family: ui-monospace, Menlo, monospace; font-weight: 700; color: var(--accent); border: 0; background: none; padding: 0; }
+  .flow .arrows { color: var(--muted); }
+
+  .scene { border-left: 4px solid var(--accent); scroll-margin-top: 70px; }
+  .scene.flash { animation: flash 1s; }
+  @keyframes flash { 0% { box-shadow: 0 0 0 4px var(--accent-soft); } 100% { box-shadow: none; } }
+  .scene-head { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .scene-head input { font-family: ui-monospace, Menlo, monospace; font-weight: 700; max-width: 140px; padding: 4px 8px; }
+  .incoming { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+
+  .line { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-top: 1px solid var(--line); }
+  .line:first-of-type { border-top: 0; }
+  .face-btn {
+    flex: none; width: 52px; border: 1px solid var(--line); background: var(--sub); border-radius: 8px; padding: 2px;
+    display: flex; flex-direction: column; align-items: center; font-size: 10px; color: var(--muted);
   }
-  label {
-    display: block;
-    font-size: 12px;
-    color: #766;
-    margin-bottom: 4px;
-    margin-top: 10px;
+  .face-btn img { width: 46px; height: 46px; object-fit: cover; object-position: top; border-radius: 6px; }
+  .face-btn.inherit img { opacity: .35; }
+  .face-btn .fname { max-width: 48px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .line-tools { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+
+  .next-box { margin-top: 10px; padding-top: 10px; border-top: 2px solid var(--line); }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
+  .seg button { flex: 1; border: 0; background: var(--card); padding: 7px 2px; font-size: 13px; border-left: 1px solid var(--line); }
+  .seg button:first-child { border-left: 0; }
+  .seg button.on { background: var(--accent); color: #fff; font-weight: 700; }
+  .opt { background: var(--sub); border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-bottom: 6px; }
+  .opt .row + .row { margin-top: 6px; }
+  .opt .lbl { font-size: 12px; color: var(--muted); width: 44px; flex: none; }
+
+  /* ---------- 検証 ---------- */
+  .issue { display: flex; gap: 8px; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 10px; margin-bottom: 6px; }
+  .issue .lv { font-weight: 700; flex: none; width: 3em; }
+  .issue.error .lv { color: var(--danger); }
+  .issue.warn .lv { color: var(--warn); }
+  .issue.info .lv { color: var(--info); }
+
+  /* ---------- シート / モーダル ---------- */
+  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+  .sheet {
+    background: var(--card); width: 100%; max-width: 760px; max-height: 88vh; overflow-y: auto;
+    border-radius: 16px 16px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
   }
-  input[type=text], textarea, select {
-    width: 100%;
-    font-size: 16px; /* iOSでズームさせないため */
-    padding: 8px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-family: inherit;
-    background: #fffdf8;
+  .sheet h3 { margin: 0 0 12px; font-size: 16px; }
+  .face-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+  .face-grid button { border: 2px solid var(--line); background: var(--sub); border-radius: 10px; padding: 4px; font-size: 12px; }
+  .face-grid button.on { border-color: var(--accent); }
+  .face-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; object-position: top; border-radius: 6px; display: block; }
+  .menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 12px 4px; border-bottom: 1px solid var(--line); font-size: 15px; }
+  .menu button:last-child { border-bottom: 0; }
+
+  /* ---------- プレビュー ---------- */
+  .pv-wrap { display: flex; flex-direction: column; gap: 10px; }
+  .pv-window {
+    position: relative; width: 100%; max-width: 400px; aspect-ratio: 400 / 450; margin: 0 auto;
+    background: #e3e1ca; border: 3px solid #888; border-radius: 12px; overflow: hidden; user-select: none; -webkit-user-select: none;
   }
-  textarea {
-    min-height: 80px;
-    resize: vertical;
-    white-space: pre-wrap;
+  .pv-window img { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); max-width: 90%; max-height: 100%; }
+  .pv-box {
+    position: absolute; bottom: 0; width: 100%; min-height: 27%; padding: 12px 14px; color: #fff;
+    background: rgba(0,0,0,.72); border-radius: 10px; font-size: 16px; line-height: 1.6; white-space: pre-wrap;
   }
-  .row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
+  .pv-box b { display: block; margin-bottom: 4px; }
+  .pv-choices { position: absolute; bottom: 31%; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0 12px; }
+  .pv-choices button { background: #fff; color: #222; border: 2px solid #888; border-radius: 8px; padding: 8px 16px; font-size: 15px; min-width: 60%; }
+  .pv-window.shake { animation: shake .3s; }
+  @keyframes shake { 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } }
+  .pv-log { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: var(--sub); border: 1px solid var(--line); border-radius: 8px; padding: 8px; max-height: 160px; overflow-y: auto; white-space: pre-wrap; }
+  .vars-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .vars-table td { padding: 4px; border-bottom: 1px solid var(--line); }
+  .vars-table input { padding: 4px 8px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: #2b2820; color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 14px; z-index: 80;
+    opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap;
   }
-  .row > * { flex: 1; }
-  .tag-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin: 6px 0;
-  }
-  .node-card {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    margin-bottom: 12px;
-    overflow: hidden;
-  }
-  .node-card-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    background: #efece0;
-    cursor: pointer;
-  }
-  .node-card-head .node-id-preview {
-    flex: 1;
-    font-weight: bold;
-    font-size: 14px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .node-card-body {
-    padding: 12px;
-    display: none;
-  }
-  .node-card.open .node-card-body {
-    display: block;
-  }
-  .node-card-head .caret {
-    transition: transform 0.15s;
-  }
-  .node-card.open .caret {
-    transform: rotate(90deg);
-  }
-  .choice-row, .list-row {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 6px;
-    align-items: center;
-  }
-  .choice-row input, .list-row input { flex: 1; }
-  .list-actions {
-    display: flex;
-    gap: 4px;
-  }
-  .add-row {
-    margin-top: 6px;
-  }
-  .warn {
-    color: var(--danger);
-    font-size: 12px;
-    margin-top: 4px;
-  }
-  #importArea {
-    min-height: 100px;
-    font-family: monospace;
-    font-size: 13px;
-  }
-  #toast {
-    position: fixed;
-    bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #2b2820;
-    color: #fff;
-    padding: 10px 18px;
-    border-radius: 20px;
-    font-size: 13px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s;
-    z-index: 50;
-  }
-  #toast.show { opacity: 1; }
-  .hint {
-    font-size: 12px;
-    color: #766;
-    margin-top: 6px;
-    line-height: 1.5;
-  }
-  .kind-badge {
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 10px;
-    background: #ddd;
-    white-space: nowrap;
-  }
-  .kind-line { background: #dbe7f5; }
-  .kind-choice { background: #f5e3db; }
-  .kind-random { background: #e3f5db; }
-  .kind-idle { background: #eee; }
+  .toast.show { opacity: 1; }
+
+  .thumb { width: 44px; height: 44px; object-fit: cover; object-position: top; border-radius: 6px; background: var(--sub); border: 1px solid var(--line); flex: none; }
+  .list-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .list-row input { padding: 6px 8px; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>会話JSONエディタ（talk.json）</h1>
-  <div class="header-buttons">
-    <button id="btn-new">新規作成</button>
-    <button id="btn-import-file">ファイルから読込</button>
-    <input type="file" id="file-input" accept="application/json" style="display:none">
-    <button id="btn-export" class="primary">書き出し(保存)</button>
-    <button id="btn-copy">コピー</button>
-  </div>
+  <div class="title" id="h-title">会話エディタ</div>
+  <button class="hbtn" id="h-undo" title="元に戻す">↶</button>
+  <button class="hbtn" id="h-redo" title="やり直す">↷</button>
+  <button class="hbtn primary" id="h-file">ファイル</button>
 </header>
 
-<main>
+<main id="main"></main>
 
-  <section>
-    <h2>基本設定</h2>
-    <label>start（最初に呼ばれるノードID）</label>
-    <input type="text" id="start-input" value="first_root">
+<nav class="tabs" id="tabs">
+  <button data-tab="topics"><span class="ic">💬</span>トピック</button>
+  <button data-tab="settings"><span class="ic">⚙︎</span>キャラ設定</button>
+  <button data-tab="issues"><span class="ic">✓</span>チェック<span class="badge hidden" id="issue-badge"></span></button>
+</nav>
 
-    <label>画像キー一覧（config.jsonのimagesと合わせてください／カンマ区切り）</label>
-    <input type="text" id="image-keys-input" value="normal,normal2,smile,idle">
-    <div class="hint">ここに入れたキーが、各ノードの「画像」選択肢と、本文入力欄の「表情差し替えボタン」に反映されます。</div>
-  </section>
+<div class="toast" id="toast"></div>
+<div id="sheet-root"></div>
 
-  <section>
-    <h2>mainStory（本編の順番）</h2>
-    <div id="mainstory-list"></div>
-    <button class="add-row small" id="btn-add-mainstory">＋ 本編ノードを追加</button>
-    <div class="hint">talkCountが5の倍数のときに、ここに書いた順番でノードが1つずつ再生されます。</div>
-  </section>
-
-  <section>
-    <h2>ノード一覧</h2>
-    <div id="nodes-list"></div>
-    <button class="add-row primary" id="btn-add-node" style="width:100%;margin-top:8px;">＋ 新しいノードを追加</button>
-  </section>
-
-  <section>
-    <h2>テキストから読み込む</h2>
-    <textarea id="importArea" placeholder="ここに既存のtalk.jsonの中身を貼り付けて「貼り付けから読み込む」を押すと編集できます"></textarea>
-    <button id="btn-import-text" style="margin-top:8px;">貼り付けから読み込む</button>
-  </section>
-
-  <section>
-    <h2>プレビュー(JSON)</h2>
-    <textarea id="preview" readonly style="min-height:160px;font-family:monospace;font-size:12px;"></textarea>
-  </section>
-
-</main>
-
-<div id="toast"></div>
-
+<script src="engine.js"></script>
 <script>
-// =====================
-// 状態
-// =====================
-let doc = {
-  start: "first_root",
-  mainStory: [],
-  imageKeys: ["normal", "normal2", "smile", "idle"],
-  // nodes は内部的には配列で保持し、書き出し時にオブジェクトへ変換する
-  nodes: []
+"use strict";
+// =====================================================
+// Liminal Dialogue 会話エディタ
+// データ形式は FORMAT.md を参照
+// =====================================================
+const DRAFT_PREFIX = "ld-editor:draft:";
+const LAST_KEY = "ld-editor:last";
+const REPO_EDIT_URL = "https://github.com/sazyoudnrk/liminal-dialogue/edit/main/data/";
+
+const S = {
+  doc: null,
+  baseline: "",          // 読み込み・書き出し時点の内容（未書き出しの判定用）
+  tab: "topics",
+  topicId: null,
+  filter: "all",
+  query: "",
+  undo: [], redo: [],
+  lastSnapKey: null, lastSnapAt: 0,
+  issues: [],
+  charIds: [],
+  showSet: new Set(),   // 変数操作欄を開いているシーン（画面上だけの状態）
 };
-let uidCounter = 1;
-function nextUid() { return "n" + (uidCounter++); }
 
-const DRAFT_KEY = "talkEditorDraft";
-
-// =====================
-// 初期データ
-// =====================
-function blankNode(kind) {
-  return {
-    uid: nextUid(),
-    id: "",
-    kind: kind || "line", // line / choice / random / idle
-    text: "",
-    image: doc.imageKeys[0] || "normal",
-    next: "idle",
-    choices: [],   // [{text, next}]
-    random: [],    // [id, id, ...]
-    open: true
-  };
+// ---------------------------------------------
+// 小物
+// ---------------------------------------------
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k === "style") el.style.cssText = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "value") el.value = v;
+    else if (k === "checked" || k === "selected" || k === "disabled") el[k] = !!v;
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat(Infinity)) {
+    if (kid == null || kid === false) continue;
+    el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
 }
 
-function defaultDoc() {
-  const idle = blankNode("idle");
-  idle.id = "idle";
-  idle.open = false;
-
-  const firstRoot = blankNode("random");
-  firstRoot.id = "first_root";
-  firstRoot.random = ["f1"];
-  firstRoot.open = false;
-
-  const f1 = blankNode("line");
-  f1.id = "f1";
-  f1.text = "初めまして。";
-  f1.image = "normal";
-  f1.next = "idle";
-
-  return {
-    start: "first_root",
-    mainStory: [],
-    imageKeys: ["normal", "normal2", "smile", "idle"],
-    nodes: [idle, firstRoot, f1]
-  };
-}
-
-// =====================
-// ユーティリティ
-// =====================
 function toast(msg) {
-  const el = document.getElementById("toast");
-  el.textContent = msg;
-  el.classList.add("show");
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => el.classList.remove("show"), 1800);
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+function autosize(ta) {
+  ta.style.height = "auto";
+  ta.style.height = ta.scrollHeight + 2 + "px";
+}
+
+function clone(x) { return JSON.parse(JSON.stringify(x)); }
+
+function faceUrl(face) {
+  const d = S.doc;
+  const f = d && d.images && d.images.faces[face];
+  return f ? d.images.base + f : "";
+}
+
+function stageList() { return (S.doc.rules && S.doc.rules.stages) || []; }
+
+function poolLabel(p) {
+  if (p === "first") return "初回";
+  if (p === "story") return "ストーリー";
+  if (p === "hidden") return "ジャンプ専用";
+  const s = stageList().find(x => x.id === p);
+  return s ? (s.label || s.id) : p;
+}
+
+function allPools() { return ["first", "story"].concat(stageList().map(s => s.id), ["hidden"]); }
+
+function topicById(id) { return S.doc.topics.find(t => t.id === id); }
+
+function topicSummary(t) {
+  if (t.title) return t.title;
+  const l = t.scenes && t.scenes[0] && t.scenes[0].lines && t.scenes[0].lines[0];
+  return l ? LD.stripTags(l.text || "") || "（空のセリフ）" : "（セリフなし）";
+}
+
+function uniqueId(base, taken) {
+  if (!taken.has(base)) return base;
+  let i = 2;
+  while (taken.has(base + i)) i++;
+  return base + i;
+}
+
+// ---------------------------------------------
+// 変更・元に戻す・下書き保存
+// ---------------------------------------------
+// 変更の直前に呼ぶ。key が同じ連続入力（文字入力など）は1つにまとめる
+function snap(key) {
+  const now = Date.now();
+  if (key && key === S.lastSnapKey && now - S.lastSnapAt < 1500) { S.lastSnapAt = now; return; }
+  S.undo.push(JSON.stringify(S.doc));
+  if (S.undo.length > 80) S.undo.shift();
+  S.redo = [];
+  S.lastSnapKey = key || null;
+  S.lastSnapAt = now;
+}
+
+function changed(rerender) {
+  saveDraft();
+  updateHeader();
+  if (rerender) render();
+  else scheduleIssues();
+}
+
+function undo() {
+  if (!S.undo.length) return;
+  S.redo.push(JSON.stringify(S.doc));
+  S.doc = JSON.parse(S.undo.pop());
+  S.lastSnapKey = null;
+  fixView();
+  changed(true);
+  toast("元に戻しました");
+}
+
+function redo() {
+  if (!S.redo.length) return;
+  S.undo.push(JSON.stringify(S.doc));
+  S.doc = JSON.parse(S.redo.pop());
+  S.lastSnapKey = null;
+  fixView();
+  changed(true);
+}
+
+function fixView() {
+  if (S.topicId && !topicById(S.topicId)) S.topicId = null;
 }
 
 function saveDraft() {
+  if (!S.doc) return;
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(doc));
-  } catch (e) { /* ignore */ }
+    localStorage.setItem(DRAFT_PREFIX + S.doc.id, JSON.stringify({ doc: S.doc, baseline: S.baseline, at: Date.now() }));
+    localStorage.setItem(LAST_KEY, S.doc.id);
+  } catch (e) { /* 容量不足など。編集は続けられる */ }
 }
 
-function loadDraft() {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (e) {
-    return null;
-  }
+function isDirty() { return S.doc && JSON.stringify(S.doc) !== S.baseline; }
+
+let issueTimer = null;
+function scheduleIssues() {
+  clearTimeout(issueTimer);
+  issueTimer = setTimeout(() => { refreshIssues(); }, 400);
 }
 
-// =====================
-// エクスポート/インポート変換
-// =====================
-function buildExportObject() {
-  const nodesObj = {};
-  doc.nodes.forEach(n => {
-    if (!n.id) return;
-    if (n.kind === "idle") {
-      nodesObj[n.id] = { action: "idle" };
-    } else if (n.kind === "random") {
-      nodesObj[n.id] = { random: n.random.filter(Boolean) };
-    } else if (n.kind === "choice") {
-      const node = {};
-      if (n.text) node.text = n.text;
-      if (n.image) node.image = n.image;
-      node.choices = n.choices
-        .filter(c => c.text || c.next)
-        .map(c => ({ text: c.text, next: c.next }));
-      nodesObj[n.id] = node;
-    } else { // line
-      const node = {};
-      if (n.text) node.text = n.text;
-      if (n.image) node.image = n.image;
-      if (n.next) node.next = n.next;
-      nodesObj[n.id] = node;
-    }
-  });
-
-  return {
-    mainStory: doc.mainStory.filter(Boolean),
-    start: doc.start || "first_root",
-    nodes: nodesObj
-  };
+function refreshIssues() {
+  S.issues = S.doc ? LD.validate(S.doc) : [];
+  const b = document.getElementById("issue-badge");
+  const err = S.issues.filter(i => i.level === "error").length;
+  const warn = S.issues.filter(i => i.level === "warn").length;
+  b.classList.toggle("hidden", !(err || warn));
+  b.classList.toggle("warn", !err);
+  b.textContent = err || warn;
 }
 
-function importFromObject(obj) {
-  const newDoc = {
-    start: obj.start || "first_root",
-    mainStory: Array.isArray(obj.mainStory) ? obj.mainStory.slice() : [],
-    imageKeys: doc.imageKeys.slice(),
-    nodes: []
-  };
-
-  const nodes = obj.nodes || {};
-  Object.keys(nodes).forEach(id => {
-    const raw = nodes[id];
-    const n = blankNode("line");
-    n.id = id;
-    n.open = false;
-
-    if (raw.action === "idle") {
-      n.kind = "idle";
-    } else if (Array.isArray(raw.random)) {
-      n.kind = "random";
-      n.random = raw.random.slice();
-    } else if (Array.isArray(raw.choices)) {
-      n.kind = "choice";
-      n.text = raw.text || "";
-      n.image = raw.image || newDoc.imageKeys[0] || "normal";
-      n.choices = raw.choices.map(c => ({ text: c.text || "", next: c.next || "" }));
-    } else {
-      n.kind = "line";
-      n.text = raw.text || "";
-      n.image = raw.image || newDoc.imageKeys[0] || "normal";
-      n.next = raw.next || "";
-    }
-
-    newDoc.nodes.push(n);
-  });
-
-  doc = newDoc;
-  renderAll();
-  saveDraft();
-}
-
-// =====================
-// レンダリング
-// =====================
-function renderAll() {
-  document.getElementById("start-input").value = doc.start;
-  document.getElementById("image-keys-input").value = doc.imageKeys.join(",");
-  renderMainStory();
-  renderNodes();
-  renderPreview();
-}
-
-function renderMainStory() {
-  const box = document.getElementById("mainstory-list");
-  box.innerHTML = "";
-  doc.mainStory.forEach((id, idx) => {
-    const row = document.createElement("div");
-    row.className = "list-row";
-
-    const input = document.createElement("input");
-    input.type = "text";
-    input.value = id;
-    input.placeholder = "ノードID（例: main1）";
-    input.addEventListener("input", () => {
-      doc.mainStory[idx] = input.value;
-      renderPreview();
-      saveDraft();
-    });
-
-    const actions = document.createElement("div");
-    actions.className = "list-actions";
-
-    const up = document.createElement("button");
-    up.className = "small";
-    up.textContent = "↑";
-    up.onclick = () => {
-      if (idx === 0) return;
-      [doc.mainStory[idx - 1], doc.mainStory[idx]] = [doc.mainStory[idx], doc.mainStory[idx - 1]];
-      renderMainStory();
-      renderPreview();
-      saveDraft();
-    };
-
-    const down = document.createElement("button");
-    down.className = "small";
-    down.textContent = "↓";
-    down.onclick = () => {
-      if (idx === doc.mainStory.length - 1) return;
-      [doc.mainStory[idx + 1], doc.mainStory[idx]] = [doc.mainStory[idx], doc.mainStory[idx + 1]];
-      renderMainStory();
-      renderPreview();
-      saveDraft();
-    };
-
-    const del = document.createElement("button");
-    del.className = "small danger";
-    del.textContent = "削除";
-    del.onclick = () => {
-      doc.mainStory.splice(idx, 1);
-      renderMainStory();
-      renderPreview();
-      saveDraft();
-    };
-
-    actions.appendChild(up);
-    actions.appendChild(down);
-    actions.appendChild(del);
-
-    row.appendChild(input);
-    row.appendChild(actions);
-    box.appendChild(row);
-  });
-}
-
-function kindLabel(kind) {
-  return { line: "セリフ", choice: "選択肢あり", random: "ランダム分岐", idle: "待機に戻る" }[kind] || kind;
-}
-
-function renderNodes() {
-  const box = document.getElementById("nodes-list");
-  box.innerHTML = "";
-
-  doc.nodes.forEach(n => {
-    const card = document.createElement("div");
-    card.className = "node-card" + (n.open ? " open" : "");
-
-    // ---- ヘッダー ----
-    const head = document.createElement("div");
-    head.className = "node-card-head";
-
-    const caret = document.createElement("span");
-    caret.className = "caret";
-    caret.textContent = "▶";
-
-    const idPreview = document.createElement("div");
-    idPreview.className = "node-id-preview";
-    idPreview.textContent = n.id || "(id未設定)";
-
-    const badge = document.createElement("span");
-    badge.className = "kind-badge kind-" + n.kind;
-    badge.textContent = kindLabel(n.kind);
-
-    head.appendChild(caret);
-    head.appendChild(idPreview);
-    head.appendChild(badge);
-    head.addEventListener("click", () => {
-      n.open = !n.open;
-      renderNodes();
-    });
-
-    // ---- 本体 ----
-    const body = document.createElement("div");
-    body.className = "node-card-body";
-
-    // ID
-    const idLabel = document.createElement("label");
-    idLabel.textContent = "ノードID（他のノードから next / choices / random で参照される名前）";
-    const idInput = document.createElement("input");
-    idInput.type = "text";
-    idInput.value = n.id;
-    idInput.addEventListener("input", () => {
-      n.id = idInput.value.trim();
-      idPreview.textContent = n.id || "(id未設定)";
-      renderPreview();
-      saveDraft();
-    });
-    body.appendChild(idLabel);
-    body.appendChild(idInput);
-
-    const dupWarn = document.createElement("div");
-    dupWarn.className = "warn";
-    dupWarn.style.display = "none";
-    dupWarn.textContent = "⚠ このIDは他のノードと重複しています";
-    body.appendChild(dupWarn);
-
-    // 種類
-    const kindLabelEl = document.createElement("label");
-    kindLabelEl.textContent = "種類";
-    const kindSelect = document.createElement("select");
-    [
-      ["line", "セリフ（自動で次へ進む）"],
-      ["choice", "セリフ＋選択肢"],
-      ["random", "ランダム分岐（rootノード用）"],
-      ["idle", "待機に戻る（特殊・通常はidleノードのみ）"]
-    ].forEach(([val, label]) => {
-      const opt = document.createElement("option");
-      opt.value = val;
-      opt.textContent = label;
-      if (n.kind === val) opt.selected = true;
-      kindSelect.appendChild(opt);
-    });
-    kindSelect.addEventListener("change", () => {
-      n.kind = kindSelect.value;
-      renderNodes();
-      renderPreview();
-      saveDraft();
-    });
-    body.appendChild(kindLabelEl);
-    body.appendChild(kindSelect);
-
-    if (n.kind === "line" || n.kind === "choice") {
-      // 表情差し替えツールバー
-      const toolbarLabel = document.createElement("label");
-      toolbarLabel.textContent = "本文（タップでタグを挿入できます）";
-      body.appendChild(toolbarLabel);
-
-      const toolbar = document.createElement("div");
-      toolbar.className = "tag-toolbar";
-
-      const textArea = document.createElement("textarea");
-      textArea.value = n.text;
-      textArea.placeholder = "セリフ本文。改行すると自動で1文字ずつ表示が区切られます。";
-      textArea.addEventListener("input", () => {
-        n.text = textArea.value;
-        renderPreview();
-        saveDraft();
-      });
-
-      function insertAtCursor(str) {
-        const start = textArea.selectionStart;
-        const end = textArea.selectionEnd;
-        const before = textArea.value.slice(0, start);
-        const after = textArea.value.slice(end);
-        textArea.value = before + str + after;
-        n.text = textArea.value;
-        const pos = start + str.length;
-        textArea.focus();
-        textArea.setSelectionRange(pos, pos);
-        renderPreview();
-        saveDraft();
-      }
-
-      doc.imageKeys.forEach(key => {
-        const btn = document.createElement("button");
-        btn.className = "small";
-        btn.textContent = "表情:" + key;
-        btn.type = "button";
-        btn.onclick = () => insertAtCursor(`{face:${key}}`);
-        toolbar.appendChild(btn);
-      });
-      const waitBtn = document.createElement("button");
-      waitBtn.className = "small";
-      waitBtn.textContent = "間(500ms)";
-      waitBtn.type = "button";
-      waitBtn.onclick = () => insertAtCursor("{wait:500}");
-      toolbar.appendChild(waitBtn);
-
-      const shakeBtn = document.createElement("button");
-      shakeBtn.className = "small";
-      shakeBtn.textContent = "揺れ";
-      shakeBtn.type = "button";
-      shakeBtn.onclick = () => insertAtCursor("{shake}");
-      toolbar.appendChild(shakeBtn);
-
-      body.appendChild(toolbar);
-      body.appendChild(textArea);
-
-      // 画像
-      const imgLabel = document.createElement("label");
-      imgLabel.textContent = "表示する立ち絵（初期表情）";
-      const imgSelect = document.createElement("select");
-      doc.imageKeys.forEach(key => {
-        const opt = document.createElement("option");
-        opt.value = key;
-        opt.textContent = key;
-        if (n.image === key) opt.selected = true;
-        imgSelect.appendChild(opt);
-      });
-      imgSelect.addEventListener("change", () => {
-        n.image = imgSelect.value;
-        renderPreview();
-        saveDraft();
-      });
-      body.appendChild(imgLabel);
-      body.appendChild(imgSelect);
-    }
-
-    if (n.kind === "line") {
-      const nextLabel = document.createElement("label");
-      nextLabel.textContent = "次に進むノードID（next）";
-      const nextInput = document.createElement("input");
-      nextInput.type = "text";
-      nextInput.value = n.next;
-      nextInput.placeholder = "idle";
-      nextInput.addEventListener("input", () => {
-        n.next = nextInput.value.trim();
-        renderPreview();
-        saveDraft();
-      });
-      body.appendChild(nextLabel);
-      body.appendChild(nextInput);
-    }
-
-    if (n.kind === "choice") {
-      const choicesLabel = document.createElement("label");
-      choicesLabel.textContent = "選択肢一覧";
-      body.appendChild(choicesLabel);
-
-      const choicesBox = document.createElement("div");
-      n.choices.forEach((c, ci) => {
-        const row = document.createElement("div");
-        row.className = "choice-row";
-
-        const textInput = document.createElement("input");
-        textInput.type = "text";
-        textInput.placeholder = "選択肢の表示テキスト";
-        textInput.value = c.text;
-        textInput.addEventListener("input", () => {
-          c.text = textInput.value;
-          renderPreview();
-          saveDraft();
-        });
-
-        const nextInput = document.createElement("input");
-        nextInput.type = "text";
-        nextInput.placeholder = "行き先ノードID";
-        nextInput.value = c.next;
-        nextInput.addEventListener("input", () => {
-          c.next = nextInput.value.trim();
-          renderPreview();
-          saveDraft();
-        });
-
-        const del = document.createElement("button");
-        del.className = "small danger";
-        del.textContent = "削除";
-        del.onclick = () => {
-          n.choices.splice(ci, 1);
-          renderNodes();
-          renderPreview();
-          saveDraft();
-        };
-
-        row.appendChild(textInput);
-        row.appendChild(nextInput);
-        row.appendChild(del);
-        choicesBox.appendChild(row);
-      });
-      body.appendChild(choicesBox);
-
-      const addChoice = document.createElement("button");
-      addChoice.className = "add-row small";
-      addChoice.textContent = "＋ 選択肢を追加";
-      addChoice.onclick = () => {
-        n.choices.push({ text: "", next: "" });
-        renderNodes();
-        saveDraft();
-      };
-      body.appendChild(addChoice);
-    }
-
-    if (n.kind === "random") {
-      const randomLabel = document.createElement("label");
-      randomLabel.textContent = "分岐先候補（この中からランダムで1つ選ばれます／未読を優先）";
-      body.appendChild(randomLabel);
-
-      const randomBox = document.createElement("div");
-      n.random.forEach((id, ri) => {
-        const row = document.createElement("div");
-        row.className = "list-row";
-
-        const input = document.createElement("input");
-        input.type = "text";
-        input.placeholder = "ノードID";
-        input.value = id;
-        input.addEventListener("input", () => {
-          n.random[ri] = input.value.trim();
-          renderPreview();
-          saveDraft();
-        });
-
-        const del = document.createElement("button");
-        del.className = "small danger";
-        del.textContent = "削除";
-        del.onclick = () => {
-          n.random.splice(ri, 1);
-          renderNodes();
-          renderPreview();
-          saveDraft();
-        };
-
-        row.appendChild(input);
-        row.appendChild(del);
-        randomBox.appendChild(row);
-      });
-      body.appendChild(randomBox);
-
-      const addRandom = document.createElement("button");
-      addRandom.className = "add-row small";
-      addRandom.textContent = "＋ 候補を追加";
-      addRandom.onclick = () => {
-        n.random.push("");
-        renderNodes();
-        saveDraft();
-      };
-      body.appendChild(addRandom);
-    }
-
-    // 複製・削除
-    const footRow = document.createElement("div");
-    footRow.className = "row";
-    footRow.style.marginTop = "14px";
-
-    const dupBtn = document.createElement("button");
-    dupBtn.textContent = "このノードを複製";
-    dupBtn.onclick = () => {
-      const copy = JSON.parse(JSON.stringify(n));
-      copy.uid = nextUid();
-      copy.id = n.id ? n.id + "_copy" : "";
-      copy.open = true;
-      const idx = doc.nodes.indexOf(n);
-      doc.nodes.splice(idx + 1, 0, copy);
-      renderNodes();
-      renderPreview();
-      saveDraft();
-    };
-
-    const delBtn = document.createElement("button");
-    delBtn.textContent = "このノードを削除";
-    delBtn.className = "danger";
-    delBtn.onclick = () => {
-      if (!confirm(`ノード「${n.id || "(id未設定)"}」を削除しますか？`)) return;
-      doc.nodes = doc.nodes.filter(x => x.uid !== n.uid);
-      renderNodes();
-      renderPreview();
-      saveDraft();
-    };
-
-    footRow.appendChild(dupBtn);
-    footRow.appendChild(delBtn);
-    body.appendChild(footRow);
-
-    card.appendChild(head);
-    card.appendChild(body);
-    box.appendChild(card);
-
-    // 重複IDチェック
-    if (n.id && doc.nodes.filter(x => x.id === n.id).length > 1) {
-      dupWarn.style.display = "block";
-    }
-  });
-}
-
-function renderPreview() {
-  const exportObj = buildExportObject();
-  document.getElementById("preview").value = JSON.stringify(exportObj, null, 2);
-}
-
-// =====================
-// イベント：基本設定
-// =====================
-document.getElementById("start-input").addEventListener("input", (e) => {
-  doc.start = e.target.value;
-  renderPreview();
-  saveDraft();
-});
-
-document.getElementById("image-keys-input").addEventListener("change", (e) => {
-  doc.imageKeys = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
-  if (doc.imageKeys.length === 0) doc.imageKeys = ["normal"];
-  renderNodes();
-  renderPreview();
-  saveDraft();
-});
-
-document.getElementById("btn-add-mainstory").addEventListener("click", () => {
-  doc.mainStory.push("");
-  renderMainStory();
-  saveDraft();
-});
-
-document.getElementById("btn-add-node").addEventListener("click", () => {
-  const n = blankNode("line");
-  n.text = "";
-  n.next = "idle";
-  doc.nodes.push(n);
-  renderNodes();
-  renderPreview();
-  saveDraft();
-
-  // 追加したカードまでスクロール
-  requestAnimationFrame(() => {
-    const cards = document.querySelectorAll(".node-card");
-    const last = cards[cards.length - 1];
-    if (last) last.scrollIntoView({ behavior: "smooth", block: "start" });
-  });
-});
-
-// =====================
-// 新規作成・読込・書き出し
-// =====================
-document.getElementById("btn-new").addEventListener("click", () => {
-  if (!confirm("編集中の内容は消えます。新規作成しますか？")) return;
-  doc = defaultDoc();
-  renderAll();
-  saveDraft();
-  toast("新規作成しました");
-});
-
-document.getElementById("btn-import-file").addEventListener("click", () => {
-  document.getElementById("file-input").click();
-});
-
-document.getElementById("file-input").addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const obj = JSON.parse(reader.result);
-      importFromObject(obj);
-      toast("読み込みました");
-    } catch (err) {
-      alert("JSONの読み込みに失敗しました: " + err.message);
-    }
-  };
-  reader.readAsText(file);
-  e.target.value = "";
-});
-
-document.getElementById("btn-import-text").addEventListener("click", () => {
-  const raw = document.getElementById("importArea").value;
-  if (!raw.trim()) {
-    alert("貼り付け欄が空です");
-    return;
-  }
-  try {
-    const obj = JSON.parse(raw);
-    importFromObject(obj);
-    toast("読み込みました");
-  } catch (err) {
-    alert("JSONの読み込みに失敗しました: " + err.message);
-  }
-});
-
-document.getElementById("btn-export").addEventListener("click", () => {
-  const exportObj = buildExportObject();
-  const jsonStr = JSON.stringify(exportObj, null, 2);
-  const blob = new Blob([jsonStr], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "talk.json";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  toast("talk.json を書き出しました");
-});
-
-document.getElementById("btn-copy").addEventListener("click", async () => {
-  const jsonStr = document.getElementById("preview").value;
-  try {
-    await navigator.clipboard.writeText(jsonStr);
-    toast("コピーしました");
-  } catch (e) {
-    // フォールバック
-    const ta = document.getElementById("preview");
-    ta.focus();
-    ta.select();
-    document.execCommand("copy");
-    toast("コピーしました");
-  }
-});
-
-// =====================
-// 起動
-// =====================
-(function boot() {
-  const draft = loadDraft();
-  if (draft && draft.nodes) {
-    doc = draft;
+function updateHeader() {
+  const t = document.getElementById("h-title");
+  t.innerHTML = "";
+  if (S.doc) {
+    t.append(S.doc.name || S.doc.id, h("small", null, S.doc.id + ".json"));
+    if (isDirty()) t.append(h("span", { class: "dot", title: "未書き出しの変更があります" }));
   } else {
-    doc = defaultDoc();
+    t.textContent = "会話エディタ";
   }
-  renderAll();
+  document.getElementById("h-undo").disabled = !S.undo.length;
+  document.getElementById("h-redo").disabled = !S.redo.length;
+}
+
+// ---------------------------------------------
+// 読み込み・書き出し
+// ---------------------------------------------
+function blankDoc(id, name) {
+  return {
+    format: LD.FORMAT, id, name,
+    images: { base: `assets/images/${id}/`, idle: "idle", faces: { normal: "normal.png", idle: "idle.png" } },
+    rules: { storyEvery: 5, stages: [{ id: "early", label: "序盤", until: 10 }, { id: "normal", label: "中盤", until: 30 }, { id: "late", label: "終盤" }] },
+    vars: {},
+    topics: [
+      { id: "f1", pools: ["first"], title: "はじめまして", scenes: [{ id: "start", lines: [{ face: "normal", text: "はじめまして。" }], next: { type: "end" } }] },
+    ],
+  };
+}
+
+function normalize(doc) {
+  doc.format = LD.FORMAT;
+  doc.images = doc.images || { base: "", idle: "idle", faces: {} };
+  doc.images.faces = doc.images.faces || {};
+  doc.rules = doc.rules || { storyEvery: 5, stages: [] };
+  doc.rules.stages = doc.rules.stages || [];
+  doc.vars = doc.vars || {};
+  doc.topics = doc.topics || [];
+  for (const t of doc.topics) {
+    t.pools = t.pools || [];
+    t.scenes = t.scenes || [];
+    for (const s of t.scenes) {
+      s.lines = s.lines || [];
+      s.next = s.next || { type: "end" };
+    }
+  }
+  return doc;
+}
+
+// 旧形式（nodes / mainStory）の talk.json を新形式に変換する
+function convertLegacy(talk, cfg, id) {
+  const nodes = talk.nodes || {};
+  const doc = blankDoc(id || "chara", (cfg && cfg.name) || id || "キャラ");
+  if (cfg) doc.images = { base: cfg.basePath || "", idle: cfg.images && cfg.images.idle ? "idle" : "normal", faces: Object.assign({}, cfg.images || {}) };
+  doc.topics = [];
+  const pools = {}, order = [];
+  const add = (tid, p) => { if (!pools[tid]) { pools[tid] = []; order.push(tid); } if (!pools[tid].includes(p)) pools[tid].push(p); };
+  (talk.mainStory || []).forEach(t => add(t, "story"));
+  [["first_root", "first"], ["early_root", "early"], ["normal_root", "normal"], ["late_root", "late"]]
+    .forEach(([r, p]) => ((nodes[r] && nodes[r].random) || []).forEach(t => add(t, p)));
+  const used = new Set();
+  const linesOf = n => String(n.text || "").split("\n").map((raw, i) => {
+    let face = null;
+    const m = raw.match(/^\{face:([^}]+)\}/);
+    if (m) { face = m[1]; raw = raw.slice(m[0].length); }
+    if (i === 0 && !face) face = n.image || null;
+    raw = raw.replace(/\{face:[^}]+\}/g, "");
+    return face ? { face, text: raw } : { text: raw };
+  });
+  const build = tid => {
+    const sid = nid => nid === tid ? "start" : (nid.startsWith(tid + "_") ? nid.slice(tid.length + 1) : nid);
+    const scenes = [], q = [tid], seen = new Set();
+    while (q.length) {
+      const nid = q.shift();
+      if (seen.has(nid) || !nodes[nid]) continue;
+      seen.add(nid); used.add(nid);
+      const n = nodes[nid];
+      const sc = { id: sid(nid), lines: linesOf(n) };
+      if (n.choices) {
+        sc.next = { type: "choice", options: n.choices.map(c => { if (c.next !== "idle") q.push(c.next); return { label: c.text, goto: c.next === "idle" ? "end" : sid(c.next) }; }) };
+      } else if (n.next && n.next !== "idle") {
+        q.push(n.next); sc.next = { type: "goto", goto: sid(n.next) };
+      } else sc.next = { type: "end" };
+      scenes.push(sc);
+    }
+    return scenes;
+  };
+  for (const tid of order) doc.topics.push({ id: tid, pools: pools[tid], scenes: build(tid) });
+  for (const [k, v] of Object.entries(nodes)) if (v.text && !used.has(k)) doc.topics.push({ id: k, pools: ["hidden"], scenes: build(k) });
+  return doc;
+}
+
+function readDraft(id) {
+  try {
+    const raw = localStorage.getItem(DRAFT_PREFIX + id);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+function openDoc(doc, baseline) {
+  S.doc = normalize(doc);
+  S.baseline = baseline != null ? baseline : JSON.stringify(S.doc);
+  S.undo = []; S.redo = [];
+  S.topicId = null; S.filter = "all"; S.query = "";
+  S.tab = "topics";
+  saveDraft();
+  refreshIssues();
+  render();
+}
+
+async function loadFromRepo(id) {
+  let server = null;
+  try {
+    const res = await fetch(`data/${id}.json`, { cache: "no-cache" });
+    if (res.ok) server = await res.json();
+  } catch (e) { /* オフラインなど */ }
+  const draft = readDraft(id);
+  const serverStr = server ? JSON.stringify(normalize(server)) : null;
+  if (draft && JSON.stringify(draft.doc) !== serverStr && JSON.stringify(draft.doc) !== draft.baseline) {
+    const when = new Date(draft.at).toLocaleString("ja-JP");
+    const choice = await askMenu(`${id} の書き出していない下書きがあります（${when}）`, [
+      { label: "下書きの続きから編集", value: "draft" },
+      server && { label: "公開中のデータを読み込む（下書きは破棄）", value: "server" },
+    ].filter(Boolean));
+    if (choice === "draft") return openDoc(draft.doc, serverStr || draft.baseline);
+    if (choice !== "server") return;
+  }
+  if (server) return openDoc(server, serverStr);
+  if (draft) return openDoc(draft.doc, draft.baseline);
+  toast(`${id} を読み込めませんでした`);
+}
+
+function exportText() { return LD.stringify(S.doc); }
+
+function markExported() {
+  S.baseline = JSON.stringify(S.doc);
+  saveDraft();
+  updateHeader();
+}
+
+function download() {
+  const blob = new Blob([exportText()], { type: "application/json" });
+  const a = h("a", { href: URL.createObjectURL(blob), download: `${S.doc.id}.json` });
+  document.body.append(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  markExported();
+  toast(`${S.doc.id}.json を書き出しました`);
+}
+
+async function copyJson() {
+  try {
+    await navigator.clipboard.writeText(exportText());
+    markExported();
+    toast("JSONをコピーしました");
+  } catch (e) {
+    showSheet("JSONをコピー", h("div", null,
+      h("p", { class: "help" }, "自動でコピーできなかったので、全選択してコピーしてください。"),
+      h("textarea", { class: "mono", style: "height:50vh;overflow:auto", readonly: true, value: exportText() })));
+  }
+}
+
+function pickFile() {
+  const inp = h("input", { type: "file", accept: ".json,application/json" });
+  inp.addEventListener("change", async () => {
+    const f = inp.files[0];
+    if (!f) return;
+    importText(await f.text(), f.name.replace(/\.json$/, ""));
+  });
+  inp.click();
+}
+
+function importText(text, nameHint) {
+  let obj;
+  try { obj = JSON.parse(text); } catch (e) { toast("JSONとして読めませんでした"); return false; }
+  if (obj.nodes) {
+    const id = (prompt("旧形式のデータです。キャラIDを入力してください（例: syochou）", nameHint || "") || "").trim();
+    if (!id) return false;
+    openDoc(convertLegacy(obj, null, id), "");
+    toast("旧形式から変換しました。キャラ設定の画像も確認してください");
+    return true;
+  }
+  if (!obj.topics) { toast("会話データではないようです"); return false; }
+  openDoc(obj, "");
+  toast("読み込みました");
+  return true;
+}
+
+function fileMenu() {
+  const items = [
+    S.doc && h("button", { onclick: () => { closeSheet(); download(); } }, "⬇︎ JSONファイルを書き出す"),
+    S.doc && h("button", { onclick: () => { closeSheet(); copyJson(); } }, "⧉ JSONをコピー"),
+    S.doc && h("button", { onclick: () => { closeSheet(); window.open(REPO_EDIT_URL + S.doc.id + ".json", "_blank"); } }, "↗ GitHubでこのファイルを開く（貼り付けて保存用）"),
+    h("button", { onclick: () => { closeSheet(); chooseCharacter(); } }, "👤 別のキャラを開く"),
+    h("button", { onclick: () => { closeSheet(); pickFile(); } }, "📂 ファイルから読み込む"),
+    h("button", { onclick: () => { closeSheet(); pasteImport(); } }, "📋 貼り付けて読み込む"),
+    h("button", { onclick: () => { closeSheet(); newCharacter(); } }, "＋ 新しいキャラを作る"),
+  ];
+  showSheet("ファイル", h("div", { class: "menu" }, items));
+}
+
+function pasteImport() {
+  const ta = h("textarea", { class: "mono", style: "height:40vh;overflow:auto", placeholder: "ここにJSONを貼り付け（旧形式のtalk.jsonも可）" });
+  showSheet("貼り付けて読み込む", h("div", null, ta,
+    h("div", { class: "row", style: "margin-top:10px" },
+      h("button", { class: "btn primary block", onclick: () => { if (importText(ta.value)) closeSheet(); } }, "読み込む"))));
+}
+
+function newCharacter() {
+  const id = (prompt("新しいキャラのID（半角英数字。ファイル名・画像フォルダ名になります）", "") || "").trim();
+  if (!id) return;
+  if (!/^[A-Za-z0-9_-]+$/.test(id)) { toast("IDは半角英数字と - _ だけ使えます"); return; }
+  const name = (prompt("表示名", id) || id).trim();
+  openDoc(blankDoc(id, name), "");
+  toast("作成しました。characters.json への追加も忘れずに");
+}
+
+async function chooseCharacter() {
+  const opts = S.charIds.map(id => ({ label: id, value: id }));
+  if (!opts.length) { fileMenu(); return; }
+  const id = await askMenu("編集するキャラを選んでください", opts);
+  if (id) loadFromRepo(id);
+}
+
+// ---------------------------------------------
+// シート（下から出るパネル）
+// ---------------------------------------------
+let sheetOnClose = null;
+function showSheet(title, body, onClose) {
+  closeSheet();
+  sheetOnClose = onClose || null;
+  const bg = h("div", { class: "sheet-bg", onclick: e => { if (e.target === bg) closeSheet(); } },
+    h("div", { class: "sheet" },
+      h("div", { class: "row", style: "margin-bottom:8px" }, h("h3", { class: "grow", style: "margin:0" }, title),
+        h("button", { class: "icon-btn", onclick: closeSheet }, "✕")),
+      body));
+  document.getElementById("sheet-root").append(bg);
+}
+
+function closeSheet() {
+  const root = document.getElementById("sheet-root");
+  if (!root.firstChild) return;
+  root.innerHTML = "";
+  const cb = sheetOnClose;
+  sheetOnClose = null;
+  if (cb) cb();
+}
+
+function askMenu(title, options) {
+  return new Promise(resolve => {
+    let done = false;
+    showSheet(title, h("div", { class: "menu" }, options.map(o =>
+      h("button", { onclick: () => { done = true; closeSheet(); resolve(o.value); } }, o.label))),
+      () => { if (!done) resolve(null); });
+  });
+}
+
+function pickFace(current, allowInherit) {
+  return new Promise(resolve => {
+    let done = false;
+    const faces = Object.keys(S.doc.images.faces);
+    const notes = S.doc.images.notes || {};
+    const pick = v => { done = true; closeSheet(); resolve(v); };
+    const grid = h("div", { class: "face-grid" },
+      allowInherit && h("button", { class: !current ? "on" : "", onclick: () => pick("") },
+        h("div", { style: "aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:12px", class: "muted" }, "前の表情のまま"), "そのまま"),
+      faces.map(f => h("button", { class: f === current ? "on" : "", onclick: () => pick(f) },
+        h("img", { src: faceUrl(f), alt: f }), h("div", null, f), notes[f] && h("div", { class: "muted small" }, notes[f]))));
+    showSheet("表情を選ぶ", grid, () => { if (!done) resolve(null); });
+  });
+}
+
+// ---------------------------------------------
+// 描画
+// ---------------------------------------------
+function render() {
+  const main = document.getElementById("main");
+  const keepScroll = render.keepScroll ? window.scrollY : null;
+  render.keepScroll = false;
+  main.innerHTML = "";
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === S.tab));
+  updateHeader();
+  refreshIssues();
+  document.querySelector(".fab") && document.querySelector(".fab").remove();
+
+  if (!S.doc) { main.append(renderStart()); return; }
+  if (S.tab === "topics") main.append(S.topicId ? renderTopic(topicById(S.topicId)) : renderTopicList());
+  if (S.tab === "settings") main.append(renderSettings());
+  if (S.tab === "issues") main.append(renderIssues());
+  main.querySelectorAll("textarea").forEach(autosize);
+  if (keepScroll != null) window.scrollTo(0, keepScroll);
+}
+
+function rerenderKeep() { render.keepScroll = true; render(); }
+
+function renderStart() {
+  return h("div", null,
+    h("div", { class: "card" },
+      h("h2", { style: "margin:0 0 6px;font-size:18px" }, "Liminal Dialogue 会話エディタ"),
+      h("p", { class: "help" }, "キャラを選ぶと、公開中のデータ（data/キャラID.json）を読み込みます。編集内容はこの端末に自動で下書き保存されます。"),
+      S.charIds.length
+        ? h("div", { class: "chips", style: "margin-top:12px" }, S.charIds.map(id =>
+            h("button", { class: "chip", style: "padding:8px 16px;font-size:15px", onclick: () => loadFromRepo(id) }, id)))
+        : h("p", { class: "muted small" }, "characters.json を読み込めませんでした。ファイルから読み込んでください。")),
+    h("div", { class: "card" },
+      h("div", { class: "chips" },
+        h("button", { class: "btn", onclick: pickFile }, "📂 ファイルから読み込む"),
+        h("button", { class: "btn", onclick: pasteImport }, "📋 貼り付けて読み込む"),
+        h("button", { class: "btn", onclick: newCharacter }, "＋ 新しいキャラ"))));
+}
+
+// ---------- トピック一覧 ----------
+function issuesFor(topicId) {
+  return S.issues.filter(i => i.at && i.at.topic === topicId && i.level !== "info");
+}
+
+function renderTopicList() {
+  const d = S.doc;
+  const pools = allPools();
+  const counts = {};
+  for (const p of pools) counts[p] = LD.topicsIn(d, p).length;
+
+  const match = (t, q) => {
+    if (S.filter !== "all" && !t.pools.includes(S.filter)) return false;
+    if (!q) return true;
+    const hay = [t.id, t.title, t.memo].concat(t.scenes.flatMap(s => s.lines.map(l => l.text))).join("\n").toLowerCase();
+    return hay.includes(q);
+  };
+
+  // 検索欄は作り直さない（日本語入力の変換中に壊れないように一覧部分だけ更新する）
+  const listBox = h("div", { style: "padding-bottom:72px" });
+  const fillList = () => {
+    const q2 = S.query.trim().toLowerCase();
+    const hit = d.topics.filter(t => match(t, q2));
+    listBox.innerHTML = "";
+    listBox.append(...(hit.length ? hit.map(t => topicRow(t, S.filter === "story" && !q2))
+      : [h("div", { class: "empty" }, q2 ? "見つかりませんでした" : "トピックがありません。＋で追加できます")]));
+  };
+  const search = h("input", { type: "search", class: "search", placeholder: "🔍 ID・タイトル・セリフで検索", value: S.query,
+    oninput: e => { S.query = e.target.value; fillList(); } });
+
+  const fab = h("button", { class: "fab", title: "トピックを追加", onclick: addTopic }, "＋");
+  document.body.append(fab);
+
+  return h("div", null,
+    search,
+    h("div", { class: "scroll-x", style: "margin-bottom:10px" },
+      h("button", { class: "chip" + (S.filter === "all" ? " on" : ""), onclick: () => { S.filter = "all"; render(); } }, `すべて ${d.topics.length}`),
+      pools.map(p => h("button", { class: "chip" + (S.filter === p ? " on" : ""), onclick: () => { S.filter = p; render(); } }, `${poolLabel(p)} ${counts[p]}`))),
+    S.filter === "story" && h("p", { class: "help", style: "margin:-4px 0 8px" }, `ストーリーは上から順に、${d.rules.storyEvery || "?"}回話すごとに1つずつ出ます。↑↓で順番を変えられます。`),
+    (fillList(), listBox));
+}
+
+function topicRow(t, canOrder) {
+  const iss = issuesFor(t.id);
+  const branches = t.scenes.filter(s => s.next && s.next.type !== "end" && s.next.type !== "goto").length;
+  const lines = t.scenes.reduce((n, s) => n + s.lines.length, 0);
+  const row = h("div", { class: "topic-row", role: "button", onclick: () => openTopic(t.id) },
+    h("div", { class: "grow" },
+      h("div", { class: "row" }, h("span", { class: "tid" }, t.id), t.once && h("span", { class: "tag hidden" }, "1回きり"), t.if && h("span", { class: "tag hidden" }, "条件付き")),
+      h("div", { class: "ttl" }, topicSummary(t)),
+      h("div", { class: "meta" },
+        t.pools.map(p => h("span", { class: "tag " + p }, poolLabel(p))),
+        h("span", { class: "muted small" }, `${lines}行` + (t.scenes.length > 1 ? ` / ${t.scenes.length}シーン` : "") + (branches ? ` / 分岐${branches}` : "")),
+        iss.length > 0 && h("span", { class: "warn-dot small" }, `⚠ ${iss.length}`))),
+    canOrder && h("div", { class: "order-btns" },
+      h("button", { onclick: e => { e.stopPropagation(); moveStory(t, -1); } }, "▲"),
+      h("button", { onclick: e => { e.stopPropagation(); moveStory(t, 1); } }, "▼")),
+    h("span", { class: "muted" }, "›"));
+  return row;
+}
+
+function moveStory(t, dir) {
+  const story = LD.topicsIn(S.doc, "story");
+  const i = story.indexOf(t);
+  const other = story[i + dir];
+  if (!other) return;
+  snap();
+  const a = S.doc.topics.indexOf(t), b = S.doc.topics.indexOf(other);
+  S.doc.topics[a] = other; S.doc.topics[b] = t;
+  changed(false);
+  rerenderKeep();
+}
+
+function addTopic() {
+  const taken = new Set(S.doc.topics.map(t => t.id));
+  const pool = S.filter === "all" ? (stageList()[0] ? stageList()[0].id : "hidden") : S.filter;
+  const prefix = { first: "f", story: "main", hidden: "x" }[pool] || pool.charAt(0);
+  let n = 1;
+  while (taken.has(prefix + n)) n++;
+  snap();
+  const t = { id: prefix + n, pools: [pool], scenes: [{ id: "start", lines: [{ face: Object.keys(S.doc.images.faces)[0] || undefined, text: "" }], next: { type: "end" } }] };
+  if (!t.scenes[0].lines[0].face) delete t.scenes[0].lines[0].face;
+  S.doc.topics.push(t);
+  changed(false);
+  openTopic(t.id);
+  setTimeout(() => { const ta = document.querySelector(".line textarea"); if (ta) ta.focus(); }, 50);
+}
+
+function openTopic(id, sceneId) {
+  S.topicId = id;
+  S.tab = "topics";
+  render();
+  window.scrollTo(0, 0);
+  if (sceneId) setTimeout(() => scrollToScene(sceneId), 30);
+}
+
+function scrollToScene(id) {
+  const el = document.querySelector(`[data-scene="${CSS.escape(id)}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+  el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+}
+
+// ---------- トピック編集 ----------
+function renderTopic(t) {
+  if (!t) { S.topicId = null; return renderTopicList(); }
+  const wrap = h("div", null,
+    h("button", { class: "back", onclick: () => { S.topicId = null; render(); } }, "‹ トピック一覧"),
+    renderTopicMeta(t),
+    renderFlow(t),
+    t.scenes.map(s => renderScene(t, s)),
+    h("button", { class: "btn block", onclick: () => addScene(t) }, "＋ シーンを追加"),
+    h("p", { class: "help", style: "text-align:center;margin-top:16px" }, "最初のシーンから会話が始まります"));
+  return wrap;
+}
+
+function renderTopicMeta(t) {
+  const idInput = h("input", { type: "text", class: "mono", value: t.id, onchange: e => renameTopic(t, e.target.value.trim(), e.target) });
+  const iss = issuesFor(t.id);
+  return h("div", { class: "card" },
+    h("div", { class: "row" },
+      h("div", { class: "grow" }, h("label", { class: "f" }, "トピックID"), idInput),
+      h("div", { style: "align-self:flex-end;display:flex;gap:6px" },
+        h("button", { class: "btn primary", onclick: () => openPreview(t) }, "▶ 試す"),
+        h("button", { class: "btn", onclick: () => topicMenu(t) }, "…"))),
+    h("label", { class: "f" }, "タイトル（一覧で見分ける用。空ならセリフの1行目）"),
+    h("input", { type: "text", value: t.title || "", placeholder: topicSummary(Object.assign({}, t, { title: "" })),
+      oninput: e => { snap("title" + t.id); if (e.target.value) t.title = e.target.value; else delete t.title; changed(false); } }),
+    h("label", { class: "f" }, "出てくる場所（複数選べます）"),
+    h("div", { class: "chips" }, allPools().map(p =>
+      h("button", { class: "chip" + (t.pools.includes(p) ? " on" : ""), onclick: () => {
+        snap();
+        t.pools = t.pools.includes(p) ? t.pools.filter(x => x !== p) : allPools().filter(x => x === p || t.pools.includes(x));
+        changed(false); rerenderKeep();
+      } }, poolLabel(p)))),
+    h("details", { open: !!(t.if || t.once || t.memo) || undefined },
+      h("summary", null, "出現条件・メモ"),
+      h("label", { class: "f" }, "出現条件（満たすときだけ選ばれる）"),
+      h("input", { type: "text", class: "mono", value: t.if || "", placeholder: "例: trust >= 3 && seen.e1",
+        oninput: e => { snap("if" + t.id); if (e.target.value.trim()) t.if = e.target.value; else delete t.if; changed(false); } }),
+      h("label", { class: "row small", style: "margin-top:10px" },
+        h("input", { type: "checkbox", checked: t.once, onchange: e => { snap(); if (e.target.checked) t.once = true; else delete t.once; changed(false); } }),
+        "一度見たら二度と出さない"),
+      h("label", { class: "f" }, "メモ（ゲームには出ません）"),
+      h("textarea", { value: t.memo || "", oninput: e => { autosize(e.target); snap("memo" + t.id); if (e.target.value) t.memo = e.target.value; else delete t.memo; changed(false); } })),
+    iss.length > 0 && h("div", { style: "margin-top:8px" }, iss.map(i => h("div", { class: "small", style: `color:var(--${i.level === "error" ? "danger" : "warn"})` }, "⚠ " + i.msg + (i.at.scene ? `（${i.at.scene}）` : "")))));
+}
+
+function topicMenu(t) {
+  showSheet(`トピック ${t.id}`, h("div", { class: "menu" },
+    h("button", { onclick: () => { closeSheet(); duplicateTopic(t); } }, "⧉ 複製する"),
+    h("button", { onclick: () => { closeSheet(); showSheet(`${t.id} のJSON`, h("textarea", { class: "mono", style: "height:50vh;overflow:auto", readonly: true, value: LD.stringify(t) })); } }, "{ } JSONを見る"),
+    h("button", { style: "color:var(--danger)", onclick: () => { closeSheet(); deleteTopic(t); } }, "🗑 削除する")));
+}
+
+function duplicateTopic(t) {
+  snap();
+  const c = clone(t);
+  c.id = uniqueId(t.id + "_copy", new Set(S.doc.topics.map(x => x.id)));
+  S.doc.topics.splice(S.doc.topics.indexOf(t) + 1, 0, c);
+  changed(false);
+  openTopic(c.id);
+  toast("複製しました");
+}
+
+function deleteTopic(t) {
+  const refs = refsToTopic(t.id);
+  const msg = `トピック「${t.id}」を削除しますか？` + (refs.length ? `\n${refs.length}か所から参照されています（行き先は「会話を終える」になります）` : "");
+  if (!confirm(msg)) return;
+  snap();
+  S.doc.topics = S.doc.topics.filter(x => x !== t);
+  forEachTarget((get, set) => { if (get() === "topic:" + t.id) set("end"); });
+  S.topicId = null;
+  changed(true);
+  toast("削除しました（↶で戻せます）");
+}
+
+// 全トピックの行き先を走査する
+function forEachTarget(fn, onlyTopic) {
+  for (const t of S.doc.topics) {
+    if (onlyTopic && t !== onlyTopic) continue;
+    for (const s of t.scenes) {
+      const nx = s.next;
+      if (!nx) continue;
+      if (nx.type === "goto") fn(() => nx.goto, v => { nx.goto = v; }, t, s, "→");
+      (nx.options || []).forEach(o => fn(() => o.goto, v => { o.goto = v; }, t, s, `「${o.label}」`));
+      (nx.cases || []).forEach((c, i) => fn(() => c.goto, v => { c.goto = v; }, t, s, nx.type === "random" ? `ランダム${i + 1}` : `条件${i + 1}`));
+      if (nx.type === "branch") fn(() => nx.else, v => { nx.else = v; }, t, s, "それ以外");
+    }
+  }
+}
+
+function refsToTopic(id) {
+  const out = [];
+  forEachTarget((get, set, t, s, how) => { if (get() === "topic:" + id) out.push({ t, s, how }); });
+  return out;
+}
+
+function renameTopic(t, nid, input) {
+  if (nid === t.id) return;
+  if (!/^[A-Za-z0-9_-]+$/.test(nid)) { toast("IDは半角英数字と - _ だけ使えます"); input.value = t.id; return; }
+  if (topicById(nid)) { toast("そのIDはもう使われています"); input.value = t.id; return; }
+  snap();
+  const old = t.id;
+  forEachTarget((get, set) => { if (get() === "topic:" + old) set("topic:" + nid); });
+  const re = new RegExp(`\\bseen\\.${old.replace(/[-]/g, "\\-")}\\b`, "g");
+  const fix = o => { for (const k of ["if", "set"]) if (o[k]) o[k] = o[k].replace(re, "seen." + nid); };
+  for (const x of S.doc.topics) {
+    fix(x);
+    for (const s of x.scenes) { fix(s); for (const o of (s.next.options || []).concat(s.next.cases || [])) fix(o); }
+  }
+  t.id = nid;
+  S.topicId = nid;
+  changed(false);
+  rerenderKeep();
+  toast("IDを変更しました（参照も更新済み）");
+}
+
+// ---------- 流れの一覧 ----------
+function targetText(g) {
+  if (!g || g === "end") return "終わり";
+  if (g.startsWith("topic:")) return "⇒" + g.slice(6);
+  return g;
+}
+
+function outgoing(s) {
+  const nx = s.next || { type: "end" };
+  switch (nx.type) {
+    case "goto": return [{ how: "", to: nx.goto }];
+    case "choice": return (nx.options || []).map(o => ({ how: `「${o.label || "?"}」`, to: o.goto }));
+    case "branch": return (nx.cases || []).map(c => ({ how: `[${c.if || "?"}]`, to: c.goto })).concat([{ how: "[それ以外]", to: nx.else }]);
+    case "random": return (nx.cases || []).map(c => ({ how: `🎲${c.weight || 1}`, to: c.goto }));
+    default: return [{ how: "", to: "end" }];
+  }
+}
+
+function renderFlow(t) {
+  if (t.scenes.length < 2 && (!t.scenes[0] || ["end", "goto"].includes((t.scenes[0].next || {}).type))) return null;
+  return h("div", { class: "card flow" },
+    h("div", { class: "small muted", style: "margin-bottom:4px" }, "流れ（タップでそのシーンへ）"),
+    t.scenes.map(s => h("div", { class: "fs" },
+      h("button", { class: "sid", onclick: () => scrollToScene(s.id) }, s.id),
+      h("span", { class: "muted small" }, `${s.lines.length}行`),
+      h("span", { class: "arrows grow" }, outgoing(s).map((o, i) => [i ? " / " : "", o.how, "→",
+        o.to && o.to !== "end" && !o.to.startsWith("topic:")
+          ? h("button", { class: "sid", style: "font-weight:400", onclick: () => scrollToScene(o.to) }, o.to)
+          : o.to && o.to.startsWith("topic:")
+            ? h("button", { class: "sid", style: "font-weight:400", onclick: () => openTopic(o.to.slice(6)) }, targetText(o.to))
+            : targetText(o.to)])))));
+}
+
+// ---------- シーン ----------
+function incomingRefs(t, sceneId) {
+  const out = [];
+  forEachTarget((get, set, tt, s, how) => { if (get() === sceneId) out.push(`${s.id}${how === "→" ? "" : " " + how}`); }, t);
+  return out;
+}
+
+function renderScene(t, s) {
+  const idx = t.scenes.indexOf(s);
+  const inc = incomingRefs(t, s.id);
+  const isFirst = idx === 0;
+  return h("div", { class: "card scene", "data-scene": s.id },
+    h("div", { class: "scene-head" },
+      h("span", { class: "small muted" }, "シーン"),
+      h("input", { type: "text", value: s.id, onchange: e => renameScene(t, s, e.target.value.trim(), e.target) }),
+      isFirst && h("span", { class: "tag first" }, "最初"),
+      h("span", { class: "grow" }),
+      h("button", { class: "icon-btn", title: "ここから試す", onclick: () => openPreview(t, s.id) }, "▶"),
+      h("button", { class: "icon-btn", title: "メニュー", onclick: () => sceneMenu(t, s) }, "…")),
+    !isFirst && h("div", { class: "incoming" }, inc.length ? "← " + inc.join("、") + " から" : "⚠ どこからも来ません"),
+    h("div", null, s.lines.map((l, i) => renderLine(t, s, l, i))),
+    h("div", { class: "row", style: "margin-top:6px" },
+      h("button", { class: "btn small", onclick: () => addLine(s, s.lines.length) }, "＋ セリフ"),
+      h("span", { class: "grow" })),
+    (s.set || S.showSet.has(t.id + "/" + s.id)) ? h("div", null,
+      h("label", { class: "f" }, "このシーンに入ったときの変数操作"),
+      h("input", { type: "text", class: "mono", value: s.set || "", placeholder: "例: trust += 1, met = true",
+        oninput: e => { snap("sset" + s.id); if (e.target.value.trim()) s.set = e.target.value; else delete s.set; changed(false); } })) : null,
+    renderNext(t, s));
+}
+
+function renderLine(t, s, l, i) {
+  // 実際に表示される表情（指定がなければ前の行から引き継ぐ）
+  let shown = l.face;
+  if (!shown) {
+    for (let j = i - 1; j >= 0; j--) if (s.lines[j].face) { shown = s.lines[j].face; break; }
+  }
+  const ta = h("textarea", { value: l.text || "", placeholder: "セリフ（1行 = 1回のタップ）", rows: 1,
+    oninput: e => { autosize(e.target); snap("line" + s.id + i); l.text = e.target.value; changed(false); },
+    onkeydown: e => {
+      // 改行キーで次のセリフを追加（Shift+改行はそのまま改行）
+      if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); addLine(s, i + 1, true); }
+    } });
+  return h("div", { class: "line" },
+    h("button", { class: "face-btn" + (l.face ? "" : " inherit"), onclick: async () => {
+        const f = await pickFace(l.face || "", true);
+        if (f == null) return;
+        snap();
+        if (f) l.face = f; else delete l.face;
+        changed(false); rerenderKeep();
+      } },
+      shown ? h("img", { src: faceUrl(shown), alt: shown }) : h("div", { style: "height:46px;line-height:46px" }, "?"),
+      h("span", { class: "fname" }, l.face || "そのまま")),
+    h("div", { class: "grow" }, ta,
+      h("div", { class: "line-tools" },
+        h("button", { class: "btn small ghost", onclick: () => insertTag(ta, l, "{wait:500}") }, "⏸ 間"),
+        h("button", { class: "btn small ghost", onclick: () => insertTag(ta, l, "{shake}") }, "〰 揺れ"),
+        h("span", { class: "grow" }),
+        h("button", { class: "icon-btn", title: "上へ", disabled: i === 0, onclick: () => moveLine(s, i, -1) }, "↑"),
+        h("button", { class: "icon-btn", title: "下へ", disabled: i === s.lines.length - 1, onclick: () => moveLine(s, i, 1) }, "↓"),
+        h("button", { class: "icon-btn", title: "削除", onclick: () => { snap(); s.lines.splice(i, 1); changed(false); rerenderKeep(); } }, "✕"))));
+}
+
+function insertTag(ta, l, tag) {
+  const a = ta.selectionStart ?? ta.value.length, b = ta.selectionEnd ?? a;
+  snap();
+  l.text = ta.value.slice(0, a) + tag + ta.value.slice(b);
+  ta.value = l.text;
+  ta.focus();
+  ta.setSelectionRange(a + tag.length, a + tag.length);
+  autosize(ta);
+  changed(false);
+}
+
+function addLine(s, at, focus) {
+  snap();
+  s.lines.splice(at, 0, { text: "" });
+  changed(false);
+  rerenderKeep();
+  if (focus !== false) setTimeout(() => {
+    const sc = document.querySelector(`[data-scene="${CSS.escape(s.id)}"]`);
+    const ta = sc && sc.querySelectorAll(".line textarea")[at];
+    if (ta) ta.focus();
+  }, 30);
+}
+
+function moveLine(s, i, d) {
+  const j = i + d;
+  if (j < 0 || j >= s.lines.length) return;
+  snap();
+  [s.lines[i], s.lines[j]] = [s.lines[j], s.lines[i]];
+  changed(false);
+  rerenderKeep();
+}
+
+function sceneMenu(t, s) {
+  const idx = t.scenes.indexOf(s);
+  showSheet(`シーン ${s.id}`, h("div", { class: "menu" },
+    !s.set && h("button", { onclick: () => { closeSheet(); S.showSet.add(t.id + "/" + s.id); rerenderKeep(); } }, "＝ 入ったときに変数を変える"),
+    idx > 0 && h("button", { onclick: () => { closeSheet(); moveScene(t, idx, -1); } }, "↑ 上へ移動" + (idx === 1 ? "（最初のシーンになります）" : "")),
+    idx < t.scenes.length - 1 && h("button", { onclick: () => { closeSheet(); moveScene(t, idx, 1); } }, "↓ 下へ移動"),
+    h("button", { onclick: () => { closeSheet(); duplicateScene(t, s); } }, "⧉ 複製する"),
+    t.scenes.length > 1 && h("button", { style: "color:var(--danger)", onclick: () => { closeSheet(); deleteScene(t, s); } }, "🗑 削除する")));
+}
+
+function moveScene(t, i, d) {
+  snap();
+  const j = i + d;
+  [t.scenes[i], t.scenes[j]] = [t.scenes[j], t.scenes[i]];
+  changed(false);
+  rerenderKeep();
+}
+
+function duplicateScene(t, s) {
+  snap();
+  const c = clone(s);
+  c.id = uniqueId(s.id + "_copy", new Set(t.scenes.map(x => x.id)));
+  t.scenes.splice(t.scenes.indexOf(s) + 1, 0, c);
+  changed(false);
+  rerenderKeep();
+  setTimeout(() => scrollToScene(c.id), 30);
+}
+
+function deleteScene(t, s) {
+  const inc = incomingRefs(t, s.id);
+  if (!confirm(`シーン「${s.id}」を削除しますか？` + (inc.length ? `\n${inc.length}か所の行き先が「会話を終える」になります` : ""))) return;
+  snap();
+  forEachTarget((get, set) => { if (get() === s.id) set("end"); }, t);
+  t.scenes = t.scenes.filter(x => x !== s);
+  changed(false);
+  rerenderKeep();
+}
+
+function renameScene(t, s, nid, input) {
+  if (nid === s.id) return;
+  if (!/^[A-Za-z0-9_-]+$/.test(nid) || nid === "end" || nid.startsWith("topic")) { toast("シーンIDは半角英数字（end / topic 以外）"); input.value = s.id; return; }
+  if (t.scenes.some(x => x.id === nid)) { toast("そのIDはこのトピックで使われています"); input.value = s.id; return; }
+  snap();
+  const old = s.id;
+  forEachTarget((get, set) => { if (get() === old) set(nid); }, t);
+  s.id = nid;
+  changed(false);
+  rerenderKeep();
+}
+
+function newSceneId(t) {
+  const taken = new Set(t.scenes.map(x => x.id));
+  let n = t.scenes.length;
+  let id;
+  do { id = "s" + n++; } while (taken.has(id));
+  return id;
+}
+
+function addScene(t, afterScene) {
+  snap();
+  const s = { id: newSceneId(t), lines: [{ text: "" }], next: { type: "end" } };
+  const at = afterScene ? t.scenes.indexOf(afterScene) + 1 : t.scenes.length;
+  t.scenes.splice(at, 0, s);
+  changed(false);
+  rerenderKeep();
+  setTimeout(() => scrollToScene(s.id), 30);
+  return s;
+}
+
+// ---------- 行き先 ----------
+const NEXT_TYPES = [
+  ["end", "終わり"], ["goto", "次へ"], ["choice", "選択肢"], ["branch", "条件"], ["random", "ランダム"],
+];
+
+function setNextType(t, s, type) {
+  const old = s.next || { type: "end" };
+  if (old.type === type) return;
+  snap();
+  const i = t.scenes.indexOf(s);
+  const following = t.scenes[i + 1] ? t.scenes[i + 1].id : "end";
+  const firstTarget = outgoing(s).map(o => o.to).find(g => g && g !== "end") || following;
+  if (type === "end") s.next = { type: "end" };
+  if (type === "goto") s.next = { type: "goto", goto: firstTarget };
+  if (type === "choice") s.next = { type: "choice", options: (old.cases || []).length
+    ? old.cases.map(c => ({ label: "", goto: c.goto }))
+    : [{ label: "", goto: firstTarget }, { label: "", goto: "end" }] };
+  if (type === "branch") s.next = { type: "branch", cases: [{ if: "", goto: firstTarget }], else: "end" };
+  if (type === "random") s.next = { type: "random", cases: (old.options || []).length
+    ? old.options.map(o => ({ goto: o.goto, weight: 1 }))
+    : [{ goto: firstTarget, weight: 1 }, { goto: "end", weight: 1 }] };
+  changed(false);
+  rerenderKeep();
+}
+
+// 行き先を選ぶセレクト。onSet(値) を呼ぶ
+function targetSelect(t, s, value, onSet) {
+  const sel = h("select", null,
+    h("option", { value: "end" }, "（会話を終える）"),
+    h("optgroup", { label: "このトピックのシーン" },
+      t.scenes.map(x => h("option", { value: x.id }, `${x.id}${x === s ? "（自分）" : ""} — ${x.lines[0] ? LD.stripTags(x.lines[0].text || "").slice(0, 16) : "セリフなし"}`))),
+    h("option", { value: "__new" }, "＋ 新しいシーンを作ってつなぐ"),
+    h("optgroup", { label: "別のトピックへジャンプ" },
+      S.doc.topics.filter(x => x !== t).map(x => h("option", { value: "topic:" + x.id }, `⇒ ${x.id} — ${topicSummary(x).slice(0, 14)}`))));
+  const v = value || "end";
+  if (![...sel.options].some(o => o.value === v)) sel.prepend(h("option", { value: v }, `⚠ ${v}（存在しない）`));
+  sel.value = v;
+  sel.addEventListener("change", () => {
+    if (sel.value === "__new") {
+      snap();
+      const ns = { id: newSceneId(t), lines: [{ text: "" }], next: { type: "end" } };
+      t.scenes.push(ns);
+      onSet(ns.id);
+      changed(false);
+      rerenderKeep();
+      setTimeout(() => scrollToScene(ns.id), 30);
+      return;
+    }
+    snap();
+    onSet(sel.value);
+    changed(false);
+    rerenderKeep();
+  });
+  return sel;
+}
+
+function renderNext(t, s) {
+  const nx = s.next || (s.next = { type: "end" });
+  const seg = h("div", { class: "seg" }, NEXT_TYPES.map(([k, label]) =>
+    h("button", { class: nx.type === k ? "on" : "", onclick: () => setNextType(t, s, k) }, label)));
+  let body = null;
+
+  if (nx.type === "end") body = h("div", { class: "help" }, "セリフが終わったら会話を終えて待機に戻ります。");
+
+  if (nx.type === "goto") body = h("div", { class: "row" }, h("span", { class: "small muted" }, "行き先"), h("div", { class: "grow" }, targetSelect(t, s, nx.goto, v => { nx.goto = v; })));
+
+  if (nx.type === "choice") body = h("div", null,
+    nx.options.map((o, i) => h("div", { class: "opt" },
+      h("div", { class: "row" },
+        h("span", { class: "lbl" }, `選択肢${i + 1}`),
+        h("input", { type: "text", class: "grow", value: o.label || "", placeholder: "ボタンの文言",
+          oninput: e => { snap("opt" + s.id + i); o.label = e.target.value; changed(false); } }),
+        h("button", { class: "icon-btn", disabled: i === 0, onclick: () => { snap(); [nx.options[i - 1], nx.options[i]] = [nx.options[i], nx.options[i - 1]]; changed(false); rerenderKeep(); } }, "↑"),
+        h("button", { class: "icon-btn", onclick: () => { snap(); nx.options.splice(i, 1); changed(false); rerenderKeep(); } }, "✕")),
+      h("div", { class: "row" }, h("span", { class: "lbl" }, "行き先"), h("div", { class: "grow" }, targetSelect(t, s, o.goto, v => { o.goto = v; }))),
+      condSetFields(o, "opt" + s.id + i, true))),
+    h("button", { class: "btn small", onclick: () => { snap(); nx.options.push({ label: "", goto: "end" }); changed(false); rerenderKeep(); } }, "＋ 選択肢を追加"));
+
+  if (nx.type === "branch") body = h("div", null,
+    h("div", { class: "help", style: "margin-bottom:6px" }, "上から順に条件を調べて、最初に当てはまった行き先へ進みます。"),
+    nx.cases.map((c, i) => h("div", { class: "opt" },
+      h("div", { class: "row" },
+        h("span", { class: "lbl" }, `もし${i + 1}`),
+        h("input", { type: "text", class: "grow mono", value: c.if || "", placeholder: "例: trust >= 3",
+          oninput: e => { snap("case" + s.id + i); c.if = e.target.value; changed(false); } }),
+        h("button", { class: "icon-btn", onclick: () => { snap(); nx.cases.splice(i, 1); changed(false); rerenderKeep(); } }, "✕")),
+      h("div", { class: "row" }, h("span", { class: "lbl" }, "行き先"), h("div", { class: "grow" }, targetSelect(t, s, c.goto, v => { c.goto = v; }))))),
+    h("button", { class: "btn small", style: "margin-bottom:6px", onclick: () => { snap(); nx.cases.push({ if: "", goto: "end" }); changed(false); rerenderKeep(); } }, "＋ 条件を追加"),
+    h("div", { class: "opt" }, h("div", { class: "row" }, h("span", { class: "lbl" }, "それ以外"),
+      h("div", { class: "grow" }, targetSelect(t, s, nx.else, v => { nx.else = v; })))));
+
+  if (nx.type === "random") {
+    const total = nx.cases.reduce((a, c) => a + (Number(c.weight) || 1), 0);
+    body = h("div", null,
+      nx.cases.map((c, i) => h("div", { class: "opt" },
+        h("div", { class: "row" },
+          h("span", { class: "lbl" }, "重み"),
+          h("input", { type: "number", min: "1", style: "width:80px", value: c.weight || 1,
+            oninput: e => { snap("w" + s.id + i); c.weight = Math.max(1, Number(e.target.value) || 1); changed(false); } }),
+          h("span", { class: "small muted grow" }, `約${Math.round((Number(c.weight) || 1) / total * 100)}%`),
+          h("button", { class: "icon-btn", onclick: () => { snap(); nx.cases.splice(i, 1); changed(false); rerenderKeep(); } }, "✕")),
+        h("div", { class: "row" }, h("span", { class: "lbl" }, "行き先"), h("div", { class: "grow" }, targetSelect(t, s, c.goto, v => { c.goto = v; }))),
+        condSetFields(c, "rc" + s.id + i, false))),
+      h("button", { class: "btn small", onclick: () => { snap(); nx.cases.push({ goto: "end", weight: 1 }); changed(false); rerenderKeep(); } }, "＋ 行き先を追加"));
+  }
+
+  return h("div", { class: "next-box" }, h("div", { class: "small muted", style: "margin-bottom:6px" }, "セリフのあと"), seg, body);
+}
+
+function condSetFields(o, key, withSet) {
+  return h("details", { open: !!(o.if || o.set) || undefined },
+    h("summary", null, withSet ? "表示条件・変数操作" : "条件"),
+    h("div", { class: "row" }, h("span", { class: "lbl" }, "条件"),
+      h("input", { type: "text", class: "grow mono", value: o.if || "", placeholder: withSet ? "満たすときだけ表示 例: trust >= 3" : "満たすときだけ候補 例: !angry",
+        oninput: e => { snap("if" + key); if (e.target.value.trim()) o.if = e.target.value; else delete o.if; changed(false); } })),
+    withSet && h("div", { class: "row", style: "margin-top:6px" }, h("span", { class: "lbl" }, "操作"),
+      h("input", { type: "text", class: "grow mono", value: o.set || "", placeholder: "選んだら 例: trust += 1",
+        oninput: e => { snap("set" + key); if (e.target.value.trim()) o.set = e.target.value; else delete o.set; changed(false); } })));
+}
+
+// ---------- キャラ設定 ----------
+function renderSettings() {
+  const d = S.doc;
+  const faces = Object.keys(d.images.faces);
+  const notes = d.images.notes || (d.images.notes = {});
+  const field = (label, value, onInput, attrs) => [h("label", { class: "f" }, label), h("input", Object.assign({ type: "text", value, oninput: e => onInput(e.target.value) }, attrs || {}))];
+
+  return h("div", null,
+    h("div", { class: "card" },
+      h("h3", { style: "margin:0 0 4px;font-size:15px" }, "基本"),
+      field("表示名", d.name || "", v => { snap("name"); d.name = v; changed(false); }),
+      field("キャラID（ファイル名 data/ID.json）", d.id, v => { snap("cid"); d.id = v.trim(); changed(false); }, { class: "mono" }),
+      field("画像フォルダ", d.images.base || "", v => { snap("base"); d.images.base = v; changed(false); }, { class: "mono", onchange: () => rerenderKeep() })),
+
+    h("div", { class: "card" },
+      h("h3", { style: "margin:0 0 8px;font-size:15px" }, "表情（立ち絵）"),
+      faces.map(f => h("div", { class: "list-row" },
+        h("img", { class: "thumb", src: faceUrl(f), alt: "" }),
+        h("div", { class: "grow" },
+          h("div", { class: "row" },
+            h("input", { type: "text", class: "mono", style: "width:40%", value: f, onchange: e => renameFace(f, e.target.value.trim(), e.target) }),
+            h("input", { type: "text", class: "mono grow", value: d.images.faces[f], onchange: e => { snap(); d.images.faces[f] = e.target.value.trim(); changed(false); rerenderKeep(); } })),
+          h("input", { type: "text", style: "margin-top:4px", value: notes[f] || "", placeholder: "メモ（例: 目逸らし）",
+            oninput: e => { snap("note" + f); if (e.target.value) notes[f] = e.target.value; else delete notes[f]; changed(false); } })),
+        h("button", { class: "icon-btn", onclick: () => removeFace(f) }, "✕"))),
+      h("button", { class: "btn small", onclick: addFace }, "＋ 表情を追加"),
+      h("label", { class: "f" }, "待機中の表情"),
+      h("select", { onchange: e => { snap(); d.images.idle = e.target.value; changed(false); } },
+        faces.map(f => h("option", { value: f, selected: f === d.images.idle }, f)))),
+
+    h("div", { class: "card" },
+      h("h3", { style: "margin:0 0 4px;font-size:15px" }, "進行ルール"),
+      h("label", { class: "f" }, "ストーリーを挟む間隔（○回話すごと。0で挟まない）"),
+      h("input", { type: "number", min: "0", value: d.rules.storyEvery ?? 0, oninput: e => { snap("every"); d.rules.storyEvery = Math.max(0, Number(e.target.value) || 0); changed(false); } }),
+      h("label", { class: "f" }, "段階（会話回数で切り替わる。上から順に判定）"),
+      stageList().map((st, i) => h("div", { class: "list-row" },
+        h("input", { type: "text", class: "mono", style: "width:28%", value: st.id, onchange: e => renameStage(st, e.target.value.trim(), e.target) }),
+        h("input", { type: "text", style: "width:28%", value: st.label || "", placeholder: "表示名", oninput: e => { snap("sl" + i); st.label = e.target.value; changed(false); } }),
+        i < stageList().length - 1
+          ? h("span", { class: "row grow small", style: "white-space:nowrap" }, h("input", { type: "number", min: "1", value: st.until ?? "", style: "width:70px", oninput: e => { snap("su" + i); st.until = Number(e.target.value) || 0; changed(false); } }), "回未満")
+          : h("span", { class: "grow small muted" }, "それ以降"),
+        h("button", { class: "icon-btn", onclick: () => removeStage(st) }, "✕"))),
+      h("button", { class: "btn small", onclick: addStage }, "＋ 段階を追加"),
+      h("p", { class: "help" }, "会話の回数で、どの段階のトピックが選ばれるかが決まります。最後の段階はそれ以降ずっと続きます。")),
+
+    h("div", { class: "card" },
+      h("h3", { style: "margin:0 0 4px;font-size:15px" }, "変数（フラグ・好感度など）"),
+      h("p", { class: "help" }, "ここで初期値を決めておくと、条件や選択肢で使えます。"),
+      Object.keys(d.vars).map(k => h("div", { class: "list-row" },
+        h("input", { type: "text", class: "mono", style: "width:45%", value: k, onchange: e => renameVar(k, e.target.value.trim(), e.target) }),
+        varValueInput(d.vars[k], v => { snap("vv" + k); d.vars[k] = v; changed(false); }),
+        h("button", { class: "icon-btn", onclick: () => { snap(); delete d.vars[k]; changed(false); rerenderKeep(); } }, "✕"))),
+      h("button", { class: "btn small", onclick: addVar }, "＋ 変数を追加"),
+      h("details", null, h("summary", null, "条件と変数操作の書き方"), exprHelp())));
+}
+
+function varValueInput(v, onSet) {
+  if (typeof v === "boolean") {
+    return h("select", { class: "grow", onchange: e => onSet(e.target.value === "true") },
+      h("option", { value: "false", selected: !v }, "false（オフ）"), h("option", { value: "true", selected: v }, "true（オン）"));
+  }
+  return h("input", { type: "number", class: "grow", value: v, oninput: e => onSet(Number(e.target.value) || 0) });
+}
+
+function exprHelp() {
+  return h("div", { class: "help" },
+    h("div", null, "条件: ", h("code", null, "trust >= 3"), " ", h("code", null, "met"), " ", h("code", null, "!angry"), " ", h("code", null, "seen.e1"), " ", h("code", null, "talkCount > 20")),
+    h("div", null, "組み合わせ: ", h("code", null, "trust >= 3 && !angry"), "（かつ）", h("code", null, "a || b"), "（または）"),
+    h("div", null, "比較: ", h("code", null, "== != >= <= > <")),
+    h("div", null, "変数操作: ", h("code", null, "trust += 1"), " ", h("code", null, "trust -= 2"), " ", h("code", null, "met = true"), "（カンマで複数）"),
+    h("div", null, h("code", null, "seen.トピックID"), " はそのトピックを見たことがあるか、", h("code", null, "talkCount"), " は会話回数です。"));
+}
+
+function addFace() {
+  const k = (prompt("表情のキー（例: angry）", "") || "").trim();
+  if (!k) return;
+  if (S.doc.images.faces[k]) { toast("もうあります"); return; }
+  snap();
+  S.doc.images.faces[k] = k + ".png";
+  changed(false); rerenderKeep();
+}
+
+function faceUses(f) {
+  let n = 0;
+  for (const t of S.doc.topics) for (const s of t.scenes) for (const l of s.lines) if (l.face === f) n++;
+  return n;
+}
+
+function removeFace(f) {
+  const n = faceUses(f);
+  if (!confirm(`表情「${f}」を削除しますか？` + (n ? `\n${n}行で使われています（それらは前の表情のままになります）` : ""))) return;
+  snap();
+  delete S.doc.images.faces[f];
+  if (S.doc.images.notes) delete S.doc.images.notes[f];
+  for (const t of S.doc.topics) for (const s of t.scenes) for (const l of s.lines) if (l.face === f) delete l.face;
+  changed(false); rerenderKeep();
+}
+
+function renameFace(f, nf, input) {
+  if (nf === f) return;
+  if (!nf || S.doc.images.faces[nf]) { toast("そのキーは使えません"); input.value = f; return; }
+  snap();
+  const rebuilt = {};
+  for (const [k, v] of Object.entries(S.doc.images.faces)) rebuilt[k === f ? nf : k] = v;
+  S.doc.images.faces = rebuilt;
+  if (S.doc.images.notes && S.doc.images.notes[f] != null) { S.doc.images.notes[nf] = S.doc.images.notes[f]; delete S.doc.images.notes[f]; }
+  if (S.doc.images.idle === f) S.doc.images.idle = nf;
+  for (const t of S.doc.topics) for (const s of t.scenes) for (const l of s.lines) if (l.face === f) l.face = nf;
+  changed(false); rerenderKeep();
+  toast("キーを変更しました（セリフ側も更新済み）");
+}
+
+function addStage() {
+  const id = (prompt("段階のID（例: final）", "") || "").trim();
+  if (!id) return;
+  if (allPools().includes(id)) { toast("そのIDは使えません"); return; }
+  snap();
+  const st = stageList();
+  const last = st[st.length - 1];
+  if (last && last.until == null) last.until = (st.length > 1 ? (st[st.length - 2].until || 0) : 0) + 20;
+  st.push({ id, label: id });
+  changed(false); rerenderKeep();
+}
+
+function removeStage(st) {
+  const n = LD.topicsIn(S.doc, st.id).length;
+  if (!confirm(`段階「${st.label || st.id}」を削除しますか？` + (n ? `\n${n}個のトピックから外れます` : ""))) return;
+  snap();
+  S.doc.rules.stages = stageList().filter(x => x !== st);
+  const list = stageList();
+  if (list.length) delete list[list.length - 1].until;
+  for (const t of S.doc.topics) t.pools = t.pools.filter(p => p !== st.id);
+  changed(false); rerenderKeep();
+}
+
+function renameStage(st, nid, input) {
+  if (nid === st.id) return;
+  if (!/^[A-Za-z0-9_-]+$/.test(nid) || allPools().includes(nid)) { toast("そのIDは使えません"); input.value = st.id; return; }
+  snap();
+  for (const t of S.doc.topics) t.pools = t.pools.map(p => p === st.id ? nid : p);
+  st.id = nid;
+  changed(false); rerenderKeep();
+}
+
+function addVar() {
+  const name = (prompt("変数名（半角英数字。例: trust）", "") || "").trim();
+  if (!name) return;
+  if (!/^[A-Za-z_]\w*$/.test(name) || name === "talkCount" || name === "true" || name === "false") { toast("その名前は使えません"); return; }
+  if (name in S.doc.vars) { toast("もうあります"); return; }
+  const kind = confirm("オン/オフのフラグにしますか？\nOK = フラグ（true/false）\nキャンセル = 数値（好感度など）");
+  snap();
+  S.doc.vars[name] = kind ? false : 0;
+  changed(false); rerenderKeep();
+}
+
+function renameVar(k, nk, input) {
+  if (nk === k) return;
+  if (!/^[A-Za-z_]\w*$/.test(nk) || nk in S.doc.vars) { toast("その名前は使えません"); input.value = k; return; }
+  snap();
+  const rebuilt = {};
+  for (const [a, v] of Object.entries(S.doc.vars)) rebuilt[a === k ? nk : a] = v;
+  S.doc.vars = rebuilt;
+  const re = new RegExp(`(^|[^\\w.])${k}(?![\\w])`, "g");
+  const fix = o => { for (const key of ["if", "set"]) if (o[key]) o[key] = o[key].replace(re, `$1${nk}`); };
+  for (const t of S.doc.topics) {
+    fix(t);
+    for (const s of t.scenes) { fix(s); for (const o of (s.next.options || []).concat(s.next.cases || [])) fix(o); }
+  }
+  changed(false); rerenderKeep();
+  toast("変数名を変更しました（条件・操作も更新済み）");
+}
+
+// ---------- チェック ----------
+function renderIssues() {
+  refreshIssues();
+  const order = { error: 0, warn: 1, info: 2 };
+  const list = S.issues.slice().sort((a, b) => order[a.level] - order[b.level]);
+  const label = { error: "エラー", warn: "注意", info: "メモ" };
+  const counts = LD.SPECIAL_POOLS.concat(stageList().map(s => s.id));
+  return h("div", null,
+    h("div", { class: "card" },
+      h("h3", { style: "margin:0 0 8px;font-size:15px" }, "出現場所ごとのトピック数"),
+      h("div", { class: "chips" }, counts.map(p => h("span", { class: "chip" }, `${poolLabel(p)} ${LD.topicsIn(S.doc, p).length}`)))),
+    list.length
+      ? list.map(i => h("button", { class: "issue " + i.level, onclick: () => i.at && i.at.topic && openTopic(i.at.topic, i.at.scene) },
+          h("span", { class: "lv" }, label[i.level]),
+          h("span", { class: "grow" }, i.msg, i.at && i.at.topic && h("div", { class: "small muted mono" }, i.at.topic + (i.at.scene ? " / " + i.at.scene : "")))))
+      : h("div", { class: "empty" }, "✓ 問題は見つかりませんでした"));
+}
+
+// ---------------------------------------------
+// プレビュー
+// ---------------------------------------------
+const PV = { talkCount: 1, vars: null };
+
+function openPreview(topic, sceneId) {
+  if (!PV.vars) PV.vars = {};
+  const d = S.doc;
+  const img = h("img", { alt: "" });
+  const box = h("div", { class: "pv-box" });
+  const choices = h("div", { class: "pv-choices" });
+  const win = h("div", { class: "pv-window" }, img, box, choices);
+  const log = h("div", { class: "pv-log" });
+  const varsBody = h("tbody");
+  let runner, step;
+
+  const showVars = () => {
+    varsBody.innerHTML = "";
+    const cur = runner ? runner.ctx.vars : Object.assign({}, d.vars, PV.vars);
+    const names = [...new Set(Object.keys(d.vars).concat(Object.keys(cur)))];
+    if (!names.length) varsBody.append(h("tr", null, h("td", { class: "muted small" }, "変数はありません")));
+    for (const k of names) {
+      const start = k in PV.vars ? PV.vars[k] : d.vars[k];
+      varsBody.append(h("tr", null,
+        h("td", { class: "mono" }, k),
+        h("td", { class: "mono", style: "font-weight:700" }, String(cur[k])),
+        h("td", null, typeof d.vars[k] === "boolean"
+          ? h("select", { onchange: e => { PV.vars[k] = e.target.value === "true"; } }, h("option", { value: "false", selected: !start }, "開始時 false"), h("option", { value: "true", selected: start === true }, "開始時 true"))
+          : h("input", { type: "number", value: start ?? 0, placeholder: "開始時", onchange: e => { PV.vars[k] = Number(e.target.value) || 0; } }))));
+    }
+  };
+
+  const show = st => {
+    step = st;
+    choices.innerHTML = "";
+    if (st.kind === "line") {
+      img.src = faceUrl(st.face);
+      box.classList.remove("hidden");
+      box.innerHTML = "";
+      box.append(h("b", null, d.name), LD.stripTags(st.text), " ▼");
+      if (/\{shake\}/.test(st.text)) { win.classList.remove("shake"); void win.offsetWidth; win.classList.add("shake"); }
+    } else if (st.kind === "choice") {
+      st.options.forEach(o => choices.append(h("button", { onclick: e => { e.stopPropagation(); show(runner.choose(o.index)); } }, o.label)));
+    } else {
+      img.src = faceUrl(d.images.idle);
+      box.innerHTML = "";
+      box.append(h("b", null, "（会話終了）"), "タップで最初から");
+    }
+    log.textContent = runner.trace.join("\n");
+    log.scrollTop = log.scrollHeight;
+    showVars();
+  };
+
+  const restart = () => {
+    const progress = { talkCount: PV.talkCount, seen: [], firstDone: true, vars: Object.assign({}, d.vars, PV.vars) };
+    runner = new LD.Runner(d, progress, { dryRun: true });
+    show(runner.start(topic, sceneId));
+  };
+
+  win.addEventListener("click", () => {
+    if (!step) return;
+    if (step.kind === "line") show(runner.next());
+    else if (step.kind === "end") restart();
+  });
+
+  showSheet(`▶ ${topic.id}${sceneId && sceneId !== topic.scenes[0].id ? " / " + sceneId + " から" : ""}`, h("div", { class: "pv-wrap" },
+    win,
+    h("p", { class: "help", style: "text-align:center;margin:0" }, "画面をタップで進みます"),
+    h("div", { class: "row" },
+      h("button", { class: "btn primary grow", onclick: restart }, "↺ 最初から"),
+      h("label", { class: "row small" }, "会話回数", h("input", { type: "number", min: "0", style: "width:72px", value: PV.talkCount, onchange: e => { PV.talkCount = Number(e.target.value) || 0; } }))),
+    h("details", { open: Object.keys(d.vars).length ? true : undefined },
+      h("summary", null, "変数（現在の値 / 開始時の値）"),
+      h("table", { class: "vars-table" }, varsBody),
+      h("p", { class: "help" }, "開始時の値を変えたら「↺ 最初から」で反映されます。")),
+    h("details", null, h("summary", null, "通過ログ"), log)));
+  restart();
+}
+
+// ---------------------------------------------
+// 起動
+// ---------------------------------------------
+document.getElementById("h-undo").addEventListener("click", undo);
+document.getElementById("h-redo").addEventListener("click", redo);
+document.getElementById("h-file").addEventListener("click", fileMenu);
+document.querySelectorAll("#tabs button").forEach(b => b.addEventListener("click", () => {
+  if (!S.doc) return;
+  if (S.tab === b.dataset.tab && b.dataset.tab === "topics") S.topicId = null;
+  S.tab = b.dataset.tab;
+  render();
+  window.scrollTo(0, 0);
+}));
+window.addEventListener("beforeunload", e => { if (isDirty()) { saveDraft(); } });
+
+(async function boot() {
+  try {
+    const res = await fetch("characters.json", { cache: "no-cache" });
+    if (res.ok) S.charIds = await res.json();
+  } catch (e) { /* ファイルを直接開いた場合など */ }
+  render();
+  let last = null;
+  try { last = localStorage.getItem(LAST_KEY); } catch (e) { /* noop */ }
+  if (last && (S.charIds.includes(last) || readDraft(last))) loadFromRepo(last);
 })();
 </script>
-
 </body>
 </html>

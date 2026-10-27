@@ -1,8 +1,0 @@
-{
-  "name": "でんでん",
-  "basePath": "assets/images/denden/",
-  "images": {
-    "normal": "normal.png",
-    "idle": "idle.png"
-  }
-}

@@ -48,6 +48,7 @@ body {
   cursor: pointer;
   text-align: center;
   transition: transform 0.15s, border-color 0.15s;
+  font: inherit;
 }
 
 .character-card:hover {
