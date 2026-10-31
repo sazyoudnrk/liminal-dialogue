@@ -237,7 +237,8 @@
   <div class="title" id="h-title">会話エディタ</div>
   <button class="hbtn" id="h-undo" title="元に戻す">↶</button>
   <button class="hbtn" id="h-redo" title="やり直す">↷</button>
-  <button class="hbtn primary" id="h-file">ファイル</button>
+  <button class="hbtn primary" id="h-save">保存</button>
+  <button class="hbtn" id="h-file" title="メニュー">≡</button>
 </header>
 
 <main id="main"></main>
@@ -426,6 +427,7 @@ function updateHeader() {
   }
   document.getElementById("h-undo").disabled = !S.undo.length;
   document.getElementById("h-redo").disabled = !S.redo.length;
+  document.getElementById("h-save").disabled = !S.doc;
 }
 
 // ---------------------------------------------
@@ -525,10 +527,19 @@ function openDoc(doc, baseline) {
 
 async function loadFromRepo(id) {
   let server = null;
-  try {
-    const res = await fetch(`data/${id}.json`, { cache: "no-cache" });
-    if (res.ok) server = await res.json();
-  } catch (e) { /* オフラインなど */ }
+  // トークンがあればGitHubから直接読む（Pagesは反映が遅れることがあるため）
+  if (ghToken()) {
+    try {
+      const f = await ghGetFile(`data/${id}.json`);
+      if (f) server = JSON.parse(f.text);
+    } catch (e) { console.warn(e); }
+  }
+  if (!server) {
+    try {
+      const res = await fetch(`data/${id}.json`, { cache: "no-cache" });
+      if (res.ok) server = await res.json();
+    } catch (e) { /* オフラインなど */ }
+  }
   const draft = readDraft(id);
   const serverStr = server ? JSON.stringify(normalize(server)) : null;
   if (draft && JSON.stringify(draft.doc) !== serverStr && JSON.stringify(draft.doc) !== draft.baseline) {
@@ -606,6 +617,7 @@ function fileMenu() {
     S.doc && h("button", { onclick: () => { closeSheet(); download(); } }, "⬇︎ JSONファイルを書き出す"),
     S.doc && h("button", { onclick: () => { closeSheet(); copyJson(); } }, "⧉ JSONをコピー"),
     S.doc && h("button", { onclick: () => { closeSheet(); window.open(REPO_EDIT_URL + S.doc.id + ".json", "_blank"); } }, "↗ GitHubでこのファイルを開く（貼り付けて保存用）"),
+    h("button", { onclick: () => { closeSheet(); tokenSheet(false); } }, "🔑 GitHub連携の設定" + (ghToken() ? "（設定済み）" : "")),
     h("button", { onclick: () => { closeSheet(); chooseCharacter(); } }, "👤 別のキャラを開く"),
     h("button", { onclick: () => { closeSheet(); pickFile(); } }, "📂 ファイルから読み込む"),
     h("button", { onclick: () => { closeSheet(); pasteImport(); } }, "📋 貼り付けて読み込む"),
@@ -635,6 +647,159 @@ async function chooseCharacter() {
   if (!opts.length) { fileMenu(); return; }
   const id = await askMenu("編集するキャラを選んでください", opts);
   if (id) loadFromRepo(id);
+}
+
+// ---------------------------------------------
+// GitHubに直接保存
+// ---------------------------------------------
+const GH = { owner: "sazyoudnrk", repo: "liminal-dialogue", branch: "main" };
+const TOKEN_KEY = "ld-editor:gh-token";
+
+function ghToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; } }
+
+async function ghApi(path, opts) {
+  opts = opts || {};
+  const headers = { Accept: "application/vnd.github+json", Authorization: "Bearer " + ghToken() };
+  if (opts.body) headers["Content-Type"] = "application/json";
+  const res = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/${path}`, Object.assign({}, opts, { headers, cache: "no-store" }));
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* 本文なし */ }
+  return { status: res.status, ok: res.ok, data };
+}
+
+function ghError(r) {
+  const m = {
+    401: "トークンが無効か期限切れです。GitHub連携の設定からトークンを入れ直してください",
+    403: "このトークンには書き込み権限がありません（Contents を Read and write に）",
+    404: "リポジトリが見つかりません（トークンの対象に liminal-dialogue が入っているか確認）",
+    409: "GitHub側が同時に更新されました。もう一度保存してください",
+    422: "GitHub側が更新されています。もう一度保存してください",
+  }[r.status];
+  return new Error(m || `GitHubエラー（${r.status}）${(r.data && r.data.message) || ""}`);
+}
+
+function b64encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+function b64decode(b64) {
+  const bin = atob(String(b64).replace(/\s/g, ""));
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+}
+
+async function ghGetFile(path) {
+  const r = await ghApi(`contents/${path}?ref=${GH.branch}`);
+  if (r.status === 404) return null;
+  if (!r.ok) throw ghError(r);
+  return { sha: r.data.sha, text: b64decode(r.data.content) };
+}
+
+async function ghPutFile(path, text, message, sha) {
+  const body = { message, content: b64encode(text), branch: GH.branch };
+  if (sha) body.sha = sha;
+  const r = await ghApi(`contents/${path}`, { method: "PUT", body: JSON.stringify(body) });
+  if (!r.ok) throw ghError(r);
+  return r.data;
+}
+
+function tokenSheet(thenPush) {
+  const inp = h("input", { type: "password", class: "mono", value: ghToken(), placeholder: "github_pat_…", autocomplete: "off" });
+  const status = h("p", { class: "help" });
+  const save = async () => {
+    const tk = inp.value.trim();
+    if (!tk) { status.textContent = "トークンを貼り付けてください"; return; }
+    try { localStorage.setItem(TOKEN_KEY, tk); } catch (e) { status.textContent = "この端末に保存できませんでした"; return; }
+    status.textContent = "確認中…";
+    try {
+      const r = await ghApi("");
+      if (!r.ok) throw ghError(r);
+      closeSheet();
+      toast("GitHub連携を設定しました");
+      if (thenPush) pushFlow();
+    } catch (e) {
+      try { localStorage.removeItem(TOKEN_KEY); } catch (e2) { /* noop */ }
+      status.textContent = "⚠ " + e.message;
+    }
+  };
+  showSheet("GitHub連携の設定", h("div", null,
+    h("p", { class: "help" }, "エディタから直接保存するためのトークンを設定します。トークンはこの端末のブラウザにだけ保存されます。最初に1回だけ必要です。"),
+    h("ol", { class: "help", style: "padding-left:18px;margin:8px 0" },
+      h("li", null, "下のボタンでGitHubのトークン作成画面を開く"),
+      h("li", null, "Token name は好きな名前、Expiration は好きな期限"),
+      h("li", null, "Repository access：Only select repositories → liminal-dialogue"),
+      h("li", null, "Permissions → Repository permissions → Contents を Read and write"),
+      h("li", null, "Generate token を押し、表示された文字列をコピーして下に貼る")),
+    h("button", { class: "btn block", onclick: () => window.open("https://github.com/settings/personal-access-tokens/new", "_blank") }, "↗ トークン作成画面を開く"),
+    h("label", { class: "f" }, "トークン"), inp,
+    h("div", { class: "row", style: "margin-top:10px" },
+      h("button", { class: "btn primary grow", onclick: save }, "確認して保存"),
+      ghToken() && h("button", { class: "btn danger", onclick: () => { try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* noop */ } closeSheet(); toast("トークンを削除しました"); } }, "削除")),
+    status,
+    h("p", { class: "help" }, "共用の端末では設定しないでください。")));
+}
+
+function pushFlow() {
+  if (!S.doc) return;
+  if (!ghToken()) { tokenSheet(true); return; }
+  refreshIssues();
+  const errs = S.issues.filter(i => i.level === "error").length;
+  const msg = h("input", { type: "text", value: `${S.doc.name || S.doc.id}の会話を更新` });
+  const status = h("div", { class: "help", style: "margin-top:8px" });
+  const btn = h("button", { class: "btn primary block", onclick: () => doPush(msg.value.trim() || `Update ${S.doc.id}`, btn, status, false) }, "保存してゲームに反映");
+  showSheet("GitHubに保存", h("div", null,
+    errs > 0 && h("p", { style: "color:var(--danger);font-size:14px;margin:0 0 8px" }, `⚠ エラーが${errs}件あります。このまま保存するとゲームで会話が途中で終わることがあります。`),
+    !isDirty() && h("p", { class: "help", style: "margin:0 0 8px" }, "前回の保存から変更はありません。"),
+    h("label", { class: "f" }, "変更メモ（履歴に残ります）"), msg,
+    h("div", { style: "margin-top:12px" }, btn),
+    status,
+    h("p", { class: "help" }, `data/${S.doc.id}.json に保存します。ゲームへの反映には1〜2分かかります。`)));
+}
+
+async function doPush(message, btn, status, force) {
+  btn.disabled = true;
+  status.textContent = "GitHubを確認中…";
+  const path = `data/${S.doc.id}.json`;
+  try {
+    const cur = await ghGetFile(path);
+    if (cur) {
+      const remote = JSON.stringify(normalize(JSON.parse(cur.text)));
+      if (remote === JSON.stringify(S.doc)) {
+        markExported(); closeSheet(); toast("GitHubと同じ内容なので保存しませんでした");
+        return;
+      }
+      // 読み込んだあとに別の場所（別端末やGitHub上）で変更されていたら確認する
+      if (!force && S.baseline && remote !== S.baseline) {
+        btn.disabled = false;
+        status.innerHTML = "";
+        status.append(
+          h("p", { style: "color:var(--warn);margin:0 0 6px" }, "⚠ 読み込んだあとに、GitHub上のこのファイルが別の場所で変更されています。保存するとその変更は消えます。"),
+          h("button", { class: "btn danger", onclick: () => doPush(message, btn, status, true) }, "上書きして保存"));
+        return;
+      }
+    }
+    status.textContent = "保存中…";
+    await ghPutFile(path, exportText(), message, cur && cur.sha);
+    let added = false;
+    const list = await ghGetFile("characters.json");
+    if (list) {
+      const ids = JSON.parse(list.text);
+      if (!ids.includes(S.doc.id)) {
+        ids.push(S.doc.id);
+        await ghPutFile("characters.json", JSON.stringify(ids) + "\n", `Add ${S.doc.id} to character list`, list.sha);
+        S.charIds = ids;
+        added = true;
+      }
+    }
+    markExported();
+    closeSheet();
+    toast(added ? "保存しました（キャラ一覧にも追加）" : "保存しました。1〜2分でゲームに反映されます");
+  } catch (e) {
+    btn.disabled = false;
+    status.textContent = "⚠ " + e.message;
+  }
 }
 
 // ---------------------------------------------
@@ -1543,6 +1708,7 @@ function openPreview(topic, sceneId) {
 document.getElementById("h-undo").addEventListener("click", undo);
 document.getElementById("h-redo").addEventListener("click", redo);
 document.getElementById("h-file").addEventListener("click", fileMenu);
+document.getElementById("h-save").addEventListener("click", pushFlow);
 document.querySelectorAll("#tabs button").forEach(b => b.addEventListener("click", () => {
   if (!S.doc) return;
   if (S.tab === b.dataset.tab && b.dataset.tab === "topics") S.topicId = null;
