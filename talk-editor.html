@@ -661,7 +661,16 @@ async function ghApi(path, opts) {
   opts = opts || {};
   const headers = { Accept: "application/vnd.github+json", Authorization: "Bearer " + ghToken() };
   if (opts.body) headers["Content-Type"] = "application/json";
-  const res = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/${path}`, Object.assign({}, opts, { headers, cache: "no-store" }));
+  // cache オプションは使わない（Safari が Cache-Control / Pragma ヘッダーを足し、GitHub の CORS で弾かれて "Load failed" になる）
+  // 代わりに GET には毎回違うクエリを付けて、ブラウザのキャッシュ（max-age=60）を避ける
+  let url = `https://api.github.com/repos/${GH.owner}/${GH.repo}` + (path ? "/" + path : "");
+  if (!opts.method || opts.method === "GET") url += (url.includes("?") ? "&" : "?") + "_=" + Date.now();
+  let res;
+  try {
+    res = await fetch(url, Object.assign({}, opts, { headers }));
+  } catch (e) {
+    throw new Error("GitHubに接続できませんでした（通信エラー）。電波状況を確認してもう一度お試しください");
+  }
   let data = null;
   try { data = await res.json(); } catch (e) { /* 本文なし */ }
   return { status: res.status, ok: res.ok, data };
